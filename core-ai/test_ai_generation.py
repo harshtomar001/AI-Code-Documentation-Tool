@@ -18,6 +18,8 @@ from ai.context_builder import ContextBuilder
 from ai.prompt_builder import DocumentationPromptBuilder
 from ai.provider_factory import ProviderFactory
 from ai.service import AIService
+from ai.change_generator import ChangeGenerator
+from ai.structured_output import StructuredOutputParser
 
 
 data = AIInput(
@@ -69,11 +71,28 @@ provider = ProviderFactory.create()
 service = AIService(
     provider=provider,
     context_builder=ContextBuilder(),
-    prompt_builder=DocumentationPromptBuilder()
+    prompt_builder=DocumentationPromptBuilder(),
+    output_parser=StructuredOutputParser(),
+    change_generator=ChangeGenerator()
 )
+result = service.generate_documentation(data)
 
-response = service.generate_documentation(data)
+print("\n--- RESULT TYPE ---")
+print(type(result))
 
-print("\n--- AI RESPONSE ---")
-print(response)
-print("\n--- END RESPONSE ---")
+print("\n--- DOCUMENTATION ---")
+print(result.documentation)
+
+print("\n--- CHANGES ---")
+for change in result.changes:
+    print("\nFILE:", change.file)
+    print("TARGET:", change.target)
+
+    print("\nBEFORE:")
+    print(change.before)
+
+    print("\nAFTER:")
+    print(change.after)
+
+print("\n--- README ---")
+print(result.documentation.readme)
