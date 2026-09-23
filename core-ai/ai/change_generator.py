@@ -114,10 +114,10 @@ class ChangeGenerator:
         return None
 
     def _insert_docstring(
-        self,
-        source: str,
-        line_start: int,
-        content: str
+            self,
+            source: str,
+            line_start: int,
+            content: str
     ) -> str:
 
         lines = source.splitlines()
@@ -125,12 +125,12 @@ class ChangeGenerator:
         if not lines:
             return source
 
-        # Determine indentation from the first line of the
-        # function/class definition.
+        # Indentation of the function/class definition.
         definition_indent = len(lines[0]) - len(lines[0].lstrip())
 
         indentation = " " * (definition_indent + 4)
 
+        # Build the new docstring.
         docstring_lines = content.splitlines()
 
         docstring = [
@@ -146,8 +146,43 @@ class ChangeGenerator:
             f'{indentation}"""'
         )
 
+        # Check whether the function/class already has a docstring.
+        body_start = 1
+
+        while body_start < len(lines) and not lines[body_start].strip():
+            body_start += 1
+
+        if (
+                body_start < len(lines)
+                and (
+                lines[body_start].strip().startswith('"""')
+                or lines[body_start].strip().startswith("'''")
+        )
+        ):
+            quote = lines[body_start].strip()[:3]
+
+            # Find the end of the existing docstring.
+            docstring_end = body_start
+
+            while docstring_end < len(lines):
+                if (
+                        docstring_end > body_start
+                        and lines[docstring_end].strip().endswith(quote)
+                ):
+                    break
+
+                docstring_end += 1
+
+            # Replace existing docstring.
+            return "\n".join(
+                lines[:body_start]
+                + docstring
+                + lines[docstring_end + 1:]
+            )
+
+        # No existing docstring → insert one.
         return "\n".join(
-            [lines[0]] +
-            docstring +
-            lines[1:]
+            [lines[0]]
+            + docstring
+            + lines[1:]
         )
