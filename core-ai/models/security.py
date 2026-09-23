@@ -18,3 +18,13 @@ class SecurityResult(BaseModel):
 class SanitizedFile(BaseModel):
     path: str
     content: str
+
+
+class SecurityMatch(BaseModel):
+    type: Literal["secret", "pii"]
+    category: str
+    file: str
+    line: int
+    start: int
+    end: int
+    replacement: str
