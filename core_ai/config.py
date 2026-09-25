@@ -4,5 +4,7 @@ from dotenv import load_dotenv
 
 
 def load_environment() -> None:
-    env_path = Path(__file__).resolve().parent / ".env"
+    project_root = Path(__file__).resolve().parent.parent
+    env_path = project_root / ".env"
+
     load_dotenv(env_path)
