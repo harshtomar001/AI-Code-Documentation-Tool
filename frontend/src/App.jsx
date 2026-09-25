@@ -1,17 +1,10 @@
-import { BrowserRouter, Routes, Route } from "react-router-dom";
-
-import Login from "./Pages/Login/login";
-import Forgot from "./Pages/Login/Forgot";
-import Landing from "./Pages/Landing/Landing";
+import { BrowserRouter } from "react-router-dom";
+import AppRoutes from "./Routes/AppRoutes";
 
 function App() {
   return (
     <BrowserRouter>
-      <Routes>
-        <Route path="/" element={<Landing />} />
-        <Route path="/login" element={<Login />} />
-        <Route path="/forgot-password" element={<Forgot />} />
-      </Routes>
+      <AppRoutes />
     </BrowserRouter>
   );
 }
