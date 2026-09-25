@@ -1,13 +1,13 @@
-from models.input import AIInput, RepositoryInfo
-from models.results import AIResult
-from models.security import SecurityResult, SecurityFinding
-from models.pipelines import PipelineResult
-from scanner import FileScanner
-from ast_analyzer import ASTAnalyzer
-from documentation_checker import DocumentationChecker
-from stale_documentation import StaleDocumentationDetector
-from security_scanner import SecurityScanner
-from redactor import Redactor
+from .models.input import AIInput, RepositoryInfo
+from .models.results import AIResult
+from .models.security import SecurityResult, SecurityFinding
+from .models.pipelines import PipelineResult
+from .scanner import FileScanner
+from .ast_analyzer import ASTAnalyzer
+from .documentation_checker import DocumentationChecker
+from .stale_documentation import StaleDocumentationDetector
+from .security_scanner import SecurityScanner
+from .redactor import Redactor
 
 
 class CorePipeline:

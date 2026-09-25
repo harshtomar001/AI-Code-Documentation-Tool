@@ -1,5 +1,5 @@
-from models.scanner import SourceFile
-from models.security import (
+from .models.scanner import SourceFile
+from .models.security import (
     SanitizedFile,
     SecurityMatch,
 )

@@ -1,14 +1,14 @@
 from pydantic import BaseModel, Field
 
-from models.analysis import AnalysisResult
-from models.documentation_analysis import (
+from .analysis import AnalysisResult
+from .documentation_analysis import (
     DocumentationCheckResult,
     StaleDocumentationResult,
 )
-from models.input import AIInput
-from models.results import AIResult
-from models.scanner import SourceFile
-from models.security import SecurityResult, SanitizedFile
+from .input import AIInput
+from .results import AIResult
+from .scanner import SourceFile
+from .security import SecurityResult, SanitizedFile
 
 
 class PipelineResult(BaseModel):

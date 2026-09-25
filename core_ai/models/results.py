@@ -1,7 +1,7 @@
 from pydantic import BaseModel, Field
 
-from models.changes import BeforeAfterChange
-from models.documentation import DocumentationResult
+from .changes import BeforeAfterChange
+from .documentation import DocumentationResult
 
 
 class AIResult(BaseModel):

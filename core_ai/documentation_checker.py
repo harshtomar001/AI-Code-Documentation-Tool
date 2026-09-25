@@ -1,5 +1,5 @@
-from models.analysis import AnalysisResult
-from models.documentation_analysis import (
+from .models.analysis import AnalysisResult
+from .models.documentation_analysis import (
     DocumentationCheckResult,
     DocumentationIssue,
 )

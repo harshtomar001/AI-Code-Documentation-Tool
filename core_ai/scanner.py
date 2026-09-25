@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from models.scanner import SourceFile
+from .models.scanner import SourceFile
 
 
 class FileScanner:

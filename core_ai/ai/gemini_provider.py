@@ -1,6 +1,6 @@
 import os
 from google import genai
-from ai.provider import AIProvider
+from .provider import AIProvider
 from dotenv import load_dotenv
 
 load_dotenv()

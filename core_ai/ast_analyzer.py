@@ -1,13 +1,13 @@
 import ast
 
-from models.analysis import (
+from .models.analysis import (
     AnalysisResult,
     FileAnalysis,
     FunctionAnalysis,
     ClassAnalysis,
     MethodAnalysis,
 )
-from models.scanner import SourceFile
+from .models.scanner import SourceFile
 
 
 class ASTAnalyzer:

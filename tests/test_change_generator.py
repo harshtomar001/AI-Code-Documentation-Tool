@@ -1,15 +1,15 @@
-from ai.change_generator import ChangeGenerator
-from models.analysis import (
+from core_ai.ai.change_generator import ChangeGenerator
+from core_ai.models.analysis import (
     AnalysisResult,
     FileAnalysis,
     FunctionAnalysis,
 )
-from models.documentation import (
+from core_ai.models.documentation import (
     DocumentationResult,
     DocumentationFile,
     DocumentationChange,
 )
-from models.security import SanitizedFile
+from core_ai.models.security import SanitizedFile
 
 
 def test_existing_docstring_is_replaced():

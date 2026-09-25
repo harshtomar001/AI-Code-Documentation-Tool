@@ -1,8 +1,7 @@
-from models.analysis import AnalysisResult
-from models.documentation import DocumentationResult
-from models.changes import BeforeAfterChange
-from models.security import SanitizedFile
-
+from ..models.analysis import AnalysisResult
+from ..models.documentation import DocumentationResult
+from ..models.changes import BeforeAfterChange
+from ..models.security import SanitizedFile
 
 class ChangeGenerator:
 

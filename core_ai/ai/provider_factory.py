@@ -1,13 +1,8 @@
 import os
 
-from dotenv import load_dotenv
-
-from ai.provider import AIProvider
-from ai.gemini_provider import GeminiProvider
-from ai.openrouter_provider import OpenRouterProvider
-
-
-load_dotenv()
+from .provider import AIProvider
+from .gemini_provider import GeminiProvider
+from .openrouter_provider import OpenRouterProvider
 
 
 class ProviderFactory:

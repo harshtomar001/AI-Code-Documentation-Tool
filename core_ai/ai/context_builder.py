@@ -1,4 +1,4 @@
-from models.input import AIInput
+from ..models.input import AIInput
 
 
 """

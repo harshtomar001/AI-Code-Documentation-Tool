@@ -1,6 +1,6 @@
 import json
 from pydantic import ValidationError
-from models.documentation import DocumentationResult
+from ..models.documentation import DocumentationResult
 
 
 class StructuredOutputParser:

@@ -1,8 +1,8 @@
 import ast
 
-from models.analysis import AnalysisResult
-from models.scanner import SourceFile
-from models.documentation_analysis import (
+from .models.analysis import AnalysisResult
+from .models.scanner import SourceFile
+from .models.documentation_analysis import (
     StaleDocumentationIssue,
     StaleDocumentationResult,
 )

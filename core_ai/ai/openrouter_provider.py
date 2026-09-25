@@ -3,7 +3,7 @@ import os
 from dotenv import load_dotenv
 from openai import OpenAI
 
-from ai.provider import AIProvider
+from .provider import AIProvider
 
 
 load_dotenv()

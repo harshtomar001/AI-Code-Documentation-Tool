@@ -1,11 +1,11 @@
-from models.input import AIInput
-from models.results import AIResult
+from ..models.input import AIInput
+from ..models.results import AIResult
 
-from ai.change_generator import ChangeGenerator
-from ai.context_builder import ContextBuilder
-from ai.prompt_builder import DocumentationPromptBuilder
-from ai.provider import AIProvider
-from ai.structured_output import StructuredOutputParser
+from .change_generator import ChangeGenerator
+from .context_builder import ContextBuilder
+from .prompt_builder import DocumentationPromptBuilder
+from .provider import AIProvider
+from .structured_output import StructuredOutputParser
 
 
 class AIService:

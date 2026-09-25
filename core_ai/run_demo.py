@@ -1,15 +1,21 @@
 import sys
 from pathlib import Path
-from pipeline import CorePipeline
-from ai.service import AIService
-from ai.context_builder import ContextBuilder
-from ai.prompt_builder import DocumentationPromptBuilder
-from ai.structured_output import StructuredOutputParser
-from ai.change_generator import ChangeGenerator
-from ai.provider_factory import ProviderFactory
+from .config import load_environment
+from dotenv import load_dotenv
+
+from .pipeline import CorePipeline
+from .ai.service import AIService
+from .ai.context_builder import ContextBuilder
+from .ai.prompt_builder import DocumentationPromptBuilder
+from .ai.structured_output import StructuredOutputParser
+from .ai.change_generator import ChangeGenerator
+from .ai.provider_factory import ProviderFactory
 
 
 def main():
+
+
+    load_environment()
 
     # --------------------------------------------------
     # Check command-line argument
@@ -32,6 +38,7 @@ def main():
     # --------------------------------------------------
     # Create AI components
     # --------------------------------------------------
+
 
     provider = ProviderFactory.create()
 
