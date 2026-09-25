@@ -1,6 +1,6 @@
 import tempfile
 from pathlib import Path
-
+from ai.provider_factory import ProviderFactory
 from pipeline import CorePipeline
 from ai.provider import AIProvider
 from ai.context_builder import ContextBuilder
@@ -67,7 +67,7 @@ def calculate_discount(price, premium):
         # Gemini/OpenRouter credentials or network access.
         # -------------------------------------------------
 
-        provider = FakeAIProvider()
+        provider =ProviderFactory.create()
 
         ai_service = AIService(
             provider=provider,
