@@ -39,10 +39,15 @@ from services.auth.auth_service import (
 
 from services.auth.oauth_service import (
     generate_oauth_state,
+
     get_google_authorization_url,
     google_login,
+
     get_microsoft_authorization_url,
     microsoft_login,
+
+    get_github_authorization_url,
+    github_login,
 )
 
 from utils.jwt import verify_access_token
@@ -80,7 +85,6 @@ async def register(
 # =========================================================
 # VERIFY EMAIL
 # =========================================================
-
 @router.post(
     "/verify-email",
     response_model=AuthResponse,
@@ -107,8 +111,6 @@ async def verify_email_endpoint(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(e),
         )
-
-
 # =========================================================
 # RESEND EMAIL OTP
 # =========================================================
@@ -169,7 +171,8 @@ async def google_login_start(
     state = generate_oauth_state()
 
     request.session["google_oauth_state"] = state
-
+    print("GOOGLE LOGIN STATE:", state)
+    print("GOOGLE SESSION:", dict(request.session))
     return RedirectResponse(
         url=get_google_authorization_url(state)
     )
@@ -182,11 +185,13 @@ async def google_callback(
     state: str,
     db: AsyncSession = Depends(get_db),
 ):
+    print("GOOGLE CALLBACK STATE:", state)
+    print("GOOGLE SESSION BEFORE:", dict(request.session))
     saved_state = request.session.pop(
         "google_oauth_state",
         None,
     )
-
+    print("SAVED STATE:", saved_state)
     if (
         not saved_state
         or not secrets.compare_digest(saved_state, state)
@@ -202,10 +207,11 @@ async def google_callback(
             code,
         )
 
-        return AuthResponse(
-            message="Google login successful",
-            access_token=access_token,
-            token_type="bearer",
+        return RedirectResponse(
+            url=(
+                f"{settings.FRONTEND_URL}"
+                f"/oauth/callback#access_token={access_token}"
+            )
         )
 
     except ValueError as e:
@@ -259,10 +265,11 @@ async def microsoft_callback(
             code,
         )
 
-        return AuthResponse(
-            message="Microsoft login successful",
-            access_token=access_token,
-            token_type="bearer",
+        return RedirectResponse(
+            url=(
+                f"{settings.FRONTEND_URL}"
+                f"/oauth/callback#access_token={access_token}"
+            )
         )
 
     except ValueError as e:
@@ -405,3 +412,58 @@ async def reset_password_route(
 
 
 
+@router.get("/github/login")
+async def github_login_start(
+    request: Request,
+):
+    state = generate_oauth_state()
+
+    request.session["github_oauth_state"] = state
+
+    return RedirectResponse(
+        url=get_github_authorization_url(state)
+    )
+
+@router.get("/github/callback")
+async def github_callback(
+    request: Request,
+    code: str,
+    state: str,
+    db: AsyncSession = Depends(get_db),
+):
+    saved_state = request.session.pop(
+        "github_oauth_state",
+        None,
+    )
+
+    if (
+        not saved_state
+        or not secrets.compare_digest(
+            saved_state,
+            state,
+        )
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid OAuth state",
+        )
+
+    try:
+        user, access_token = await github_login(
+            db,
+            code,
+        )
+
+        return RedirectResponse(
+            url=(
+                f"{settings.FRONTEND_URL}"
+                f"/oauth/callback"
+                f"#access_token={access_token}"
+            )
+        )
+
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e),
+        )
