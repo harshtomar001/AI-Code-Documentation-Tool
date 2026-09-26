@@ -24,7 +24,21 @@ MICROSOFT_TOKEN_URL = (
     "{tenant}/oauth2/v2.0/token"
 )
 MICROSOFT_USERINFO_URL = "https://graph.microsoft.com/v1.0/me"
+GITHUB_AUTHORIZE_URL = (
+    "https://github.com/login/oauth/authorize"
+)
 
+GITHUB_TOKEN_URL = (
+    "https://github.com/login/oauth/access_token"
+)
+
+GITHUB_USER_URL = (
+    "https://api.github.com/user"
+)
+
+GITHUB_EMAILS_URL = (
+    "https://api.github.com/user/emails"
+)
 
 def generate_oauth_state() -> str:
     return secrets.token_urlsafe(32)
@@ -306,3 +320,229 @@ async def microsoft_login(db: AsyncSession, code: str):
 
     return user, _app_token(user)
 
+def get_github_authorization_url(
+    state: str,
+) -> str:
+
+    params = {
+        "client_id": settings.GITHUB_CLIENT_ID,
+        "redirect_uri": settings.GITHUB_REDIRECT_URI,
+        "scope": "read:user user:email",
+        "state": state,
+        "allow_signup": "true",
+    }
+
+    return (
+        f"{GITHUB_AUTHORIZE_URL}?"
+        f"{urlencode(params)}"
+    )
+
+
+async def github_login(
+    db: AsyncSession,
+    code: str,
+):
+    async with httpx.AsyncClient(
+        timeout=20.0
+    ) as client:
+
+        # =========================================
+        # EXCHANGE CODE FOR ACCESS TOKEN
+        # =========================================
+
+        token_response = await client.post(
+            GITHUB_TOKEN_URL,
+            params={
+                "client_id":
+                    settings.GITHUB_CLIENT_ID,
+
+                "client_secret":
+                    settings.GITHUB_CLIENT_SECRET,
+
+                "code": code,
+
+                "redirect_uri":
+                    settings.GITHUB_REDIRECT_URI,
+            },
+            headers={
+                "Accept": "application/json"
+            },
+        )
+
+        token_response.raise_for_status()
+
+        token_data = token_response.json()
+
+        github_access_token = token_data.get(
+            "access_token"
+        )
+
+        if not github_access_token:
+            raise ValueError(
+                "Could not get GitHub access token"
+            )
+
+        # =========================================
+        # GET GITHUB USER
+        # =========================================
+
+        headers = {
+            "Authorization":
+                f"Bearer {github_access_token}",
+
+            "Accept":
+                "application/vnd.github+json",
+
+            "X-GitHub-Api-Version":
+                "2022-11-28",
+        }
+
+        user_response = await client.get(
+            GITHUB_USER_URL,
+            headers=headers,
+        )
+
+        user_response.raise_for_status()
+
+        github_user = user_response.json()
+
+        github_id = github_user.get("id")
+        github_name = (
+            github_user.get("name")
+            or github_user.get("login")
+            or "GitHub User"
+        )
+
+        if not github_id:
+            raise ValueError(
+                "GitHub user ID not found"
+            )
+
+        # =========================================
+        # GET VERIFIED EMAIL
+        # =========================================
+
+        email_response = await client.get(
+            GITHUB_EMAILS_URL,
+            headers=headers,
+        )
+
+        email_response.raise_for_status()
+
+        emails = email_response.json()
+
+        verified_email = None
+
+        for item in emails:
+            if (
+                item.get("verified") is True
+                and item.get("primary") is True
+            ):
+                verified_email = item.get("email")
+                break
+
+        # fallback: any verified email
+        if not verified_email:
+            for item in emails:
+                if item.get("verified") is True:
+                    verified_email = item.get("email")
+                    break
+
+        if not verified_email:
+            raise ValueError(
+                "No verified email found on GitHub account"
+            )
+
+    email = verified_email.strip().lower()
+
+    # =========================================
+    # FIND EXISTING GITHUB IDENTITY
+    # =========================================
+
+    result = await db.execute(
+        select(UserIdentity).where(
+            UserIdentity.provider == "github",
+            UserIdentity.provider_id ==
+                str(github_id),
+        )
+    )
+
+    identity = result.scalar_one_or_none()
+
+    if identity:
+        result = await db.execute(
+            select(User).where(
+                User.id == identity.user_id
+            )
+        )
+
+        user = result.scalar_one_or_none()
+
+        if not user:
+            raise ValueError(
+                "GitHub user account not found"
+            )
+
+    else:
+        # =========================================
+        # FIND EXISTING USER BY EMAIL
+        # =========================================
+
+        result = await db.execute(
+            select(User).where(
+                User.email == email
+            )
+        )
+
+        user = result.scalar_one_or_none()
+
+        if user:
+            # Attach GitHub identity
+            identity = UserIdentity(
+                user_id=user.id,
+                provider="github",
+                provider_id=str(github_id),
+            )
+
+            db.add(identity)
+
+        else:
+            # =====================================
+            # CREATE NEW USER
+            # =====================================
+
+            user = User(
+                name=github_name,
+                email=email,
+                password_hash=None,
+                is_active=True,
+                is_verified=True,
+            )
+
+            db.add(user)
+
+            await db.flush()
+
+            identity = UserIdentity(
+                user_id=user.id,
+                provider="github",
+                provider_id=str(github_id),
+            )
+
+            db.add(identity)
+
+    await db.commit()
+    await db.refresh(user)
+
+    # =========================================
+    # CREATE OUR JWT
+    # =========================================
+
+    access_token = create_access_token(
+        {
+            "sub": str(user.id),
+            "email": user.email,
+        }
+    )
+
+    return user, access_token

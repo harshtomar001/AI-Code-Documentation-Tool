@@ -98,10 +98,12 @@ async def verify_email(
     otp: str,
 ):
     email = str(email).strip().lower()
+    otp = str(otp).strip()
 
     result = await db.execute(
         select(User).where(User.email == email)
     )
+
     user = result.scalar_one_or_none()
 
     if not user:
@@ -117,9 +119,12 @@ async def verify_email(
             OTPVerification.purpose == "email_verification",
             OTPVerification.is_used.is_(False),
         )
-        .order_by(OTPVerification.created_at.desc())
+        .order_by(
+            OTPVerification.created_at.desc()
+        )
         .limit(1)
     )
+
     otp_record = result.scalar_one_or_none()
 
     if not otp_record:
@@ -130,14 +135,18 @@ async def verify_email(
     if otp_record.expires_at <= now:
         otp_record.is_used = True
         await db.commit()
-        raise ValueError("OTP has expired")
+        raise ValueError("Invalid or expired OTP")
 
     if otp_record.attempts >= MAX_OTP_ATTEMPTS:
         otp_record.is_used = True
         await db.commit()
         raise ValueError("Too many incorrect OTP attempts")
 
-    if not verify_otp(otp, otp_record.otp_hash):
+    # Check OTP
+    if not verify_otp(
+        otp,
+        otp_record.otp_hash,
+    ):
         otp_record.attempts += 1
 
         if otp_record.attempts >= MAX_OTP_ATTEMPTS:
@@ -146,20 +155,28 @@ async def verify_email(
         await db.commit()
 
         if otp_record.attempts >= MAX_OTP_ATTEMPTS:
-            raise ValueError("Too many incorrect OTP attempts")
+            raise ValueError(
+                "Too many incorrect OTP attempts"
+            )
 
-        raise ValueError("Invalid OTP")
+        raise ValueError("Invalid or expired OTP")
 
+    # OTP correct
     user.is_verified = True
     otp_record.is_used = True
 
     await db.commit()
     await db.refresh(user)
 
-    access_token = _create_access_token(user)
+    # Generate JWT
+    access_token = create_access_token(
+        {
+            "sub": str(user.id),
+            "email": user.email,
+        }
+    )
 
     return user, access_token
-
 
 async def resend_otp(
     db: AsyncSession,

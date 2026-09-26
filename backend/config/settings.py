@@ -6,7 +6,7 @@ class Settings(BaseSettings):
     DEBUG: bool = True
 
     DATABASE_URL: str
-
+    FRONTEND_URL: str = "http://localhost:5173"
     JWT_SECRET_KEY: str
     JWT_ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60
@@ -19,6 +19,9 @@ class Settings(BaseSettings):
     MICROSOFT_CLIENT_SECRET: str = ""
     MICROSOFT_REDIRECT_URI: str = ""
     MICROSOFT_TENANT: str = "common"
+    GITHUB_CLIENT_ID: str
+    GITHUB_CLIENT_SECRET: str
+    GITHUB_REDIRECT_URI: str
     SMTP_HOST: str = "smtp.office365.com"
     SMTP_PORT: int = 587
     SMTP_USERNAME: str = ""
