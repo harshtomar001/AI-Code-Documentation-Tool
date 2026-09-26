@@ -1,24 +1,40 @@
+"""Stale documentation detection utilities.
+
+This module analyzes documented Python functions and methods to identify
+documentation that does not mention parameters present in the source code.
+"""
+
 import ast
 
 from .models.analysis import AnalysisResult
-from .models.scanner import SourceFile
 from .models.documentation_analysis import (
     StaleDocumentationIssue,
     StaleDocumentationResult,
 )
+from .models.scanner import SourceFile
 
 
 class StaleDocumentationDetector:
+    """Detect stale parameter documentation in Python source files."""
 
     def detect(
         self,
         analysis: AnalysisResult,
         files: list[SourceFile],
     ) -> StaleDocumentationResult:
+        """Detect documentation that is missing source-code parameters.
 
-        issues = []
+        Args:
+            analysis: Results produced by the AST analysis stage.
+            files: Source files discovered by the repository scanner.
 
-        source_map = {
+        Returns:
+            A StaleDocumentationResult containing detected stale
+            documentation issues.
+        """
+        issues: list[StaleDocumentationIssue] = []
+
+        source_map: dict[str, str] = {
             file.path: file.content
             for file in files
         }
@@ -56,8 +72,13 @@ class StaleDocumentationDetector:
 
                 docstring = ast.get_docstring(node)
 
-                documented_parameters = self._extract_documented_parameters(
-                    docstring
+                if docstring is None:
+                    continue
+
+                documented_parameters = (
+                    self._extract_documented_parameters(
+                        docstring
+                    )
                 )
 
                 missing_parameters = [
@@ -90,9 +111,22 @@ class StaleDocumentationDetector:
             issues=issues
         )
 
-    def _get_parameters(self, node):
+    def _get_parameters(
+        self,
+        node: ast.FunctionDef | ast.AsyncFunctionDef,
+    ) -> list[str]:
+        """Extract documented-relevant parameters from a function node.
 
-        parameters = []
+        ``self`` and ``cls`` are excluded to preserve the detector's
+        existing behavior.
+
+        Args:
+            node: AST node representing a function or method.
+
+        Returns:
+            A list of parameter names excluding ``self`` and ``cls``.
+        """
+        parameters: list[str] = []
 
         for argument in node.args.args:
 
@@ -103,9 +137,20 @@ class StaleDocumentationDetector:
 
         return parameters
 
-    def _extract_documented_parameters(self, docstring):
+    def _extract_documented_parameters(
+        self,
+        docstring: str,
+    ) -> list[str]:
+        """Extract parameter names mentioned in a docstring.
 
-        documented = []
+        Args:
+            docstring: Function or method docstring to inspect.
+
+        Returns:
+            A list of parameter names detected from colon-separated
+            documentation lines.
+        """
+        documented: list[str] = []
 
         try:
             tree = ast.parse(
@@ -133,8 +178,21 @@ class StaleDocumentationDetector:
 
         return documented
 
-    def _is_method(self, node, tree):
+    def _is_method(
+        self,
+        node: ast.FunctionDef | ast.AsyncFunctionDef,
+        tree: ast.AST,
+    ) -> bool:
+        """Determine whether a function node belongs to a class.
 
+        Args:
+            node: Function or async-function AST node.
+            tree: Parsed module AST containing the node.
+
+        Returns:
+            ``True`` when the function is directly contained in a class;
+            otherwise ``False``.
+        """
         for parent in ast.walk(tree):
 
             if not isinstance(parent, ast.ClassDef):

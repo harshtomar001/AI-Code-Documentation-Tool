@@ -1,16 +1,24 @@
+"""Repository source-file scanning utilities.
+
+This module provides the file scanner used by the Core AI pipeline to
+discover supported source files while excluding common generated,
+dependency, and IDE directories.
+"""
+
 from pathlib import Path
 
 from .models.scanner import SourceFile
 
 
 class FileScanner:
+    """Scan a repository and collect supported source files."""
 
-    SUPPORTED_EXTENSIONS = {
+    SUPPORTED_EXTENSIONS: dict[str, str] = {
         ".py": "python",
         ".js": "javascript",
     }
 
-    IGNORED_DIRECTORIES = {
+    IGNORED_DIRECTORIES: set[str] = {
         ".git",
         "__pycache__",
         "node_modules",
@@ -20,7 +28,19 @@ class FileScanner:
     }
 
     def scan(self, repository_path: str) -> list[SourceFile]:
+        """Scan a repository for supported source files.
 
+        Args:
+            repository_path: Path to the repository directory.
+
+        Returns:
+            A list of SourceFile objects containing the relative path,
+            detected language, and source content.
+
+        Raises:
+            FileNotFoundError: If the repository path does not exist.
+            ValueError: If the repository path is not a directory.
+        """
         root = Path(repository_path)
 
         if not root.exists():
@@ -33,7 +53,7 @@ class FileScanner:
                 f"Repository path is not a directory: {repository_path}"
             )
 
-        files = []
+        files: list[SourceFile] = []
 
         for path in root.rglob("*"):
 
@@ -64,7 +84,7 @@ class FileScanner:
                 SourceFile(
                     path=str(relative_path),
                     language=language,
-                    content=content
+                    content=content,
                 )
             )
 

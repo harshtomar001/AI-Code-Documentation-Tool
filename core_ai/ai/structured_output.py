@@ -2,10 +2,24 @@ import json
 from pydantic import ValidationError
 from ..models.documentation import DocumentationResult
 
+"""Parse and validate structured AI documentation output."""
 
 class StructuredOutputParser:
+    """Parse AI responses into validated documentation results."""
 
     def parse(self, response: str) -> DocumentationResult:
+        """Parse and validate an AI-generated documentation response.
+
+        Args:
+            response: Raw response returned by the AI provider.
+
+        Returns:
+            A validated DocumentationResult.
+
+        Raises:
+            ValueError: If the response is not valid JSON or does not match
+                the expected DocumentationResult schema.
+        """
 
         response = response.strip()
 

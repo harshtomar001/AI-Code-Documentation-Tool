@@ -4,6 +4,7 @@ from core_ai.ai.prompt_builder import DocumentationPromptBuilder
 from core_ai.ai.service import AIService
 from core_ai.ai.structured_output import StructuredOutputParser
 from core_ai.pipeline import CorePipeline
+from core_ai.exceptions import AIProviderError, PipelineError
 
 
 class FakeAIProvider:
@@ -25,6 +26,10 @@ class FakeAIProvider:
     "readme": "# Sample Project"
 }
 """
+
+class FailingAIProvider:
+    def generate(self, prompt: str) -> str:
+        raise AIProviderError("Provider failed")
 
 
 def create_ai_service():
@@ -69,3 +74,27 @@ def test_pipeline_runs_with_fake_ai():
     assert result.ai_result is not None
     assert result.ai_result.documentation is not None
     assert result.ai_result.changes is not None
+
+
+def test_ai_provider_error_becomes_pipeline_error():
+    pipeline = CorePipeline(
+        ai_service=AIService(
+            provider=FailingAIProvider(),
+            context_builder=ContextBuilder(),
+            prompt_builder=DocumentationPromptBuilder(),
+            output_parser=StructuredOutputParser(),
+            change_generator=ChangeGenerator(),
+        )
+    )
+
+    try:
+        pipeline.run(
+            repository_path="core_ai/demo_project",
+            repository_name="demo_project",
+        )
+    except PipelineError as exc:
+        assert str(exc) == "Core AI pipeline failed"
+        assert isinstance(exc.__cause__, AIProviderError)
+        assert str(exc.__cause__) == "Provider failed"
+    else:
+        raise AssertionError("PipelineError was not raised")

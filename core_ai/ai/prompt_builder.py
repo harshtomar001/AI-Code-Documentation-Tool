@@ -1,6 +1,20 @@
+"""Build prompts for AI-powered code documentation generation."""
+
 class DocumentationPromptBuilder:
 
+    """Build structured prompts for documentation generation."""
+
     def build(self, context: str) -> str:
+        """Build the documentation-generation prompt.
+
+        Args:
+            context: Structured repository context produced by
+                ContextBuilder.
+
+        Returns:
+            A prompt instructing the AI model to generate documentation
+            in the expected structured format.
+        """
 
         return f"""
 You are an AI code documentation assistant.

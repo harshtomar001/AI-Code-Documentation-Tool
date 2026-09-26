@@ -3,14 +3,27 @@ from ..models.documentation import DocumentationResult
 from ..models.changes import BeforeAfterChange
 from ..models.security import SanitizedFile
 
+"""Generate concrete source-code changes from AI documentation results."""
+
 class ChangeGenerator:
+    """Convert generated documentation into source-code changes."""
 
     def generate(
-        self,
-        documentation: DocumentationResult,
-        analysis: AnalysisResult,
-        files: list[SanitizedFile]
+            self,
+            documentation: DocumentationResult,
+            analysis: AnalysisResult,
+            files: list[SanitizedFile],
     ) -> list[BeforeAfterChange]:
+        """Generate before-and-after source changes.
+
+        Args:
+            documentation: AI-generated documentation changes.
+            analysis: AST analysis of the repository.
+            files: Sanitized source files used for generating changes.
+
+        Returns:
+            A list of concrete before-and-after source changes.
+        """
 
         changes = []
 
@@ -74,6 +87,7 @@ class ChangeGenerator:
         files: list[SanitizedFile],
         path: str
     ) -> SanitizedFile | None:
+        """Find a sanitized source file by path."""
 
         for file in files:
             if file.path == path:
@@ -86,6 +100,7 @@ class ChangeGenerator:
         analysis: AnalysisResult,
         path: str
     ):
+        """Find an analyzed file by path."""
         for file in analysis.files:
             if file.path == path:
                 return file
@@ -97,6 +112,7 @@ class ChangeGenerator:
         analysis_file,
         target_name: str
     ):
+        """Find the analyzed function, class, or method by target name."""
         for function in analysis_file.functions:
             if function.name == target_name:
                 return function
@@ -118,6 +134,7 @@ class ChangeGenerator:
             line_start: int,
             content: str
     ) -> str:
+        """Insert a generated docstring into source code."""
 
         lines = source.splitlines()
 

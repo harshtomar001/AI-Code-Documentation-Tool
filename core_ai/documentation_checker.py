@@ -1,3 +1,9 @@
+"""Documentation completeness checking utilities.
+
+This module identifies undocumented public functions, classes, and methods
+from the results produced by the AST analysis stage.
+"""
+
 from .models.analysis import AnalysisResult
 from .models.documentation_analysis import (
     DocumentationCheckResult,
@@ -6,13 +12,22 @@ from .models.documentation_analysis import (
 
 
 class DocumentationChecker:
+    """Check analyzed source code for missing public documentation."""
 
     def check(
         self,
-        analysis: AnalysisResult
+        analysis: AnalysisResult,
     ) -> DocumentationCheckResult:
+        """Find undocumented public functions, classes, and methods.
 
-        issues = []
+        Args:
+            analysis: Results produced by the AST analysis stage.
+
+        Returns:
+            A DocumentationCheckResult containing all detected
+            documentation issues.
+        """
+        issues: list[DocumentationIssue] = []
 
         for file in analysis.files:
 

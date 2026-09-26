@@ -1,3 +1,10 @@
+"""Sensitive-information redaction utilities.
+
+This module replaces security-sensitive matches in source files with
+their configured redaction values before the files are passed to
+downstream AI processing.
+"""
+
 from .models.scanner import SourceFile
 from .models.security import (
     SanitizedFile,
@@ -6,28 +13,38 @@ from .models.security import (
 
 
 class Redactor:
+    """Redact detected security-sensitive content from source files."""
 
     def redact(
         self,
         files: list[SourceFile],
         matches: list[SecurityMatch],
     ) -> list[SanitizedFile]:
+        """Redact security matches from the supplied source files.
 
-        matches_by_file = {}
+        Args:
+            files: Source files that may contain sensitive information.
+            matches: Security matches produced by the security scanner.
+
+        Returns:
+            A list of sanitized files with detected sensitive content
+            replaced by the configured replacement values.
+        """
+        matches_by_file: dict[str, list[SecurityMatch]] = {}
 
         for match in matches:
             matches_by_file.setdefault(
                 match.file,
-                []
+                [],
             ).append(match)
 
-        sanitized_files = []
+        sanitized_files: list[SanitizedFile] = []
 
         for file in files:
 
             file_matches = matches_by_file.get(
                 file.path,
-                []
+                [],
             )
 
             if not file_matches:

@@ -1,12 +1,23 @@
+"""Security scanning utilities.
+
+This module scans source files for configured secret and personally
+identifiable information (PII) patterns and produces security matches
+for downstream redaction.
+"""
+
 import re
+from typing import Literal, Pattern
 
 from .models.scanner import SourceFile
 from .models.security import SecurityMatch
 
 
 class SecurityScanner:
+    """Scan source files for configured secrets and PII patterns."""
 
-    PATTERNS = [
+    PATTERNS: list[
+        tuple[Literal["secret", "pii"], str, Pattern[str], str]
+    ] = [
         # API keys / secrets assigned to variables
         (
             "secret",
@@ -82,8 +93,16 @@ class SecurityScanner:
         self,
         files: list[SourceFile],
     ) -> list[SecurityMatch]:
+        """Scan source files for configured security-sensitive patterns.
 
-        matches = []
+        Args:
+            files: Source files discovered by the repository scanner.
+
+        Returns:
+            A list of SecurityMatch objects describing detected secrets
+            and PII, including their locations and redaction replacements.
+        """
+        matches: list[SecurityMatch] = []
 
         for file in files:
 

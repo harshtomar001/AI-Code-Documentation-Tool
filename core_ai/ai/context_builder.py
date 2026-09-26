@@ -1,70 +1,23 @@
+"""Build structured context for AI documentation generation."""
+
 from ..models.input import AIInput
 
 
-"""
-## Repository
-Name: test-project
-
-Files:
-- app.py
-- user.py
-- utils.py
-
-## Code Analysis
-
-File: app.py
-Language: python
-
-Functions:
-- process_user(user) [lines 8-18] [public=True] [docstring=False]
-
-File: user.py
-Language: python
-
-Classes:
-- User [lines 1-15] [public=True] [docstring=False]
-  - get_email() [lines 7-10] [public=True] [docstring=False]
-
-File: utils.py
-Language: python
-
-Functions:
-- format_name(name) [lines 3-6] [public=True] [docstring=True]
-
-## Security
-Safe for AI: True
-
-Redacted findings:
-- secret: api_key in app.py line 3
-- pii: email in user.py line 12
-
-## Sanitized Source Code
-
---- app.py ---
-API_KEY = "[REDACTED_SECRET]"
-
-def process_user(user):
-    return format_user(user)
-
---- user.py ---
-class User:
-    def __init__(self, email):
-        self.email = "[REDACTED_PII]"
-
-    def get_email(self):
-        return self.email
-
---- utils.py ---
-def format_name(name):
-    "Format a user's name."
-   # return name.strip().title()
-"""
-
-
 class ContextBuilder:
+    """Build structured repository context for the AI documentation pipeline."""
 
     def build(self, data: AIInput) -> str:
-        sections = []
+        """Build the complete context from repository analysis data.
+
+        Args:
+            data: Repository metadata, analysis results, security findings,
+                and sanitized source files.
+
+        Returns:
+            A structured context string containing repository information,
+            code analysis, security information, and sanitized source code.
+        """
+        sections: list[str] = []
 
         sections.append(self._build_repository_section(data))
         sections.append(self._build_analysis_section(data))
@@ -74,11 +27,19 @@ class ContextBuilder:
         return "\n\n".join(sections)
 
     def _build_repository_section(self, data: AIInput) -> str:
-        lines = [
+        """Build the repository metadata section.
+
+        Args:
+            data: Repository analysis input.
+
+        Returns:
+            Formatted repository name and file list.
+        """
+        lines: list[str] = [
             "## Repository",
             f"Name: {data.repository.name}",
             "",
-            "Files:"
+            "Files:",
         ]
 
         for file in data.repository.files:
@@ -87,7 +48,16 @@ class ContextBuilder:
         return "\n".join(lines)
 
     def _build_analysis_section(self, data: AIInput) -> str:
-        lines = [
+        """Build the code-analysis section.
+
+        Args:
+            data: AST analysis results contained in the AI input.
+
+        Returns:
+            Formatted information about analyzed files, functions,
+            classes, and methods.
+        """
+        lines: list[str] = [
             "## Code Analysis"
         ]
 
@@ -136,9 +106,17 @@ class ContextBuilder:
         return "\n".join(lines)
 
     def _build_security_section(self, data: AIInput) -> str:
-        lines = [
+        """Build the security findings section.
+
+        Args:
+            data: Security analysis results contained in the AI input.
+
+        Returns:
+            Formatted security status and redacted findings.
+        """
+        lines: list[str] = [
             "## Security",
-            f"Safe for AI: {data.security.safe_for_ai}"
+            f"Safe for AI: {data.security.safe_for_ai}",
         ]
 
         if data.security.findings:
@@ -156,7 +134,15 @@ class ContextBuilder:
         return "\n".join(lines)
 
     def _build_source_section(self, data: AIInput) -> str:
-        lines = [
+        """Build the sanitized source-code section.
+
+        Args:
+            data: Sanitized source files included in the AI input.
+
+        Returns:
+            Formatted sanitized source code for all analyzed files.
+        """
+        lines: list[str] = [
             "## Sanitized Source Code"
         ]
 

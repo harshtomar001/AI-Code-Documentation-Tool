@@ -62,7 +62,7 @@ class ASTAnalyzer:
         return FunctionAnalysis(
             name=node.name,
             line_start=node.lineno,
-            line_end=node.end_lineno,
+            line_end=node.end_lineno or node.lineno,
             parameters=self._get_parameters(node),
             has_docstring=ast.get_docstring(node) is not None,
             is_public=not node.name.startswith("_"),
@@ -85,7 +85,7 @@ class ASTAnalyzer:
         return ClassAnalysis(
             name=node.name,
             line_start=node.lineno,
-            line_end=node.end_lineno,
+            line_end=node.end_lineno or node.lineno,
             has_docstring=ast.get_docstring(node) is not None,
             is_public=not node.name.startswith("_"),
             methods=methods,
@@ -96,7 +96,7 @@ class ASTAnalyzer:
         return MethodAnalysis(
             name=node.name,
             line_start=node.lineno,
-            line_end=node.end_lineno,
+            line_end=node.end_lineno or node.lineno,
             parameters=self._get_parameters(node),
             has_docstring=ast.get_docstring(node) is not None,
             is_public=not node.name.startswith("_"),
