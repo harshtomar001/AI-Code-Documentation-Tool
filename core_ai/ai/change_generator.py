@@ -1,18 +1,19 @@
 from ..models.analysis import AnalysisResult
-from ..models.documentation import DocumentationResult
 from ..models.changes import BeforeAfterChange
+from ..models.documentation import DocumentationResult
 from ..models.security import SanitizedFile
 
 """Generate concrete source-code changes from AI documentation results."""
+
 
 class ChangeGenerator:
     """Convert generated documentation into source-code changes."""
 
     def generate(
-            self,
-            documentation: DocumentationResult,
-            analysis: AnalysisResult,
-            files: list[SanitizedFile],
+        self,
+        documentation: DocumentationResult,
+        analysis: AnalysisResult,
+        files: list[SanitizedFile],
     ) -> list[BeforeAfterChange]:
         """Generate before-and-after source changes.
 
@@ -28,16 +29,9 @@ class ChangeGenerator:
         changes = []
 
         for documentation_file in documentation.files:
+            source_file = self._find_file(files, documentation_file.path)
 
-            source_file = self._find_file(
-                files,
-                documentation_file.path
-            )
-
-            analysis_file = self._find_analysis_file(
-                analysis,
-                documentation_file.path
-            )
+            analysis_file = self._find_analysis_file(analysis, documentation_file.path)
 
             if source_file is None or analysis_file is None:
                 continue
@@ -45,29 +39,20 @@ class ChangeGenerator:
             source_lines = source_file.content.splitlines()
 
             for change in documentation_file.changes:
-
                 if change.type != "docstring":
                     continue
 
-                target = self._find_target(
-                    analysis_file,
-                    change.target
-                )
+                target = self._find_target(analysis_file, change.target)
 
                 if target is None:
                     continue
 
-                before_lines = source_lines[
-                    target.line_start - 1:
-                    target.line_end
-                ]
+                before_lines = source_lines[target.line_start - 1 : target.line_end]
 
                 before = "\n".join(before_lines)
 
                 after = self._insert_docstring(
-                    before,
-                    target.line_start,
-                    change.content
+                    before, target.line_start, change.content
                 )
 
                 changes.append(
@@ -76,17 +61,13 @@ class ChangeGenerator:
                         target=change.target,
                         type=change.type,
                         before=before,
-                        after=after
+                        after=after,
                     )
                 )
 
         return changes
 
-    def _find_file(
-        self,
-        files: list[SanitizedFile],
-        path: str
-    ) -> SanitizedFile | None:
+    def _find_file(self, files: list[SanitizedFile], path: str) -> SanitizedFile | None:
         """Find a sanitized source file by path."""
 
         for file in files:
@@ -95,11 +76,7 @@ class ChangeGenerator:
 
         return None
 
-    def _find_analysis_file(
-        self,
-        analysis: AnalysisResult,
-        path: str
-    ):
+    def _find_analysis_file(self, analysis: AnalysisResult, path: str):
         """Find an analyzed file by path."""
         for file in analysis.files:
             if file.path == path:
@@ -107,18 +84,13 @@ class ChangeGenerator:
 
         return None
 
-    def _find_target(
-        self,
-        analysis_file,
-        target_name: str
-    ):
+    def _find_target(self, analysis_file, target_name: str):
         """Find the analyzed function, class, or method by target name."""
         for function in analysis_file.functions:
             if function.name == target_name:
                 return function
 
         for cls in analysis_file.classes:
-
             if cls.name == target_name:
                 return cls
 
@@ -128,12 +100,7 @@ class ChangeGenerator:
 
         return None
 
-    def _insert_docstring(
-            self,
-            source: str,
-            line_start: int,
-            content: str
-    ) -> str:
+    def _insert_docstring(self, source: str, line_start: int, content: str) -> str:
         """Insert a generated docstring into source code."""
 
         lines = source.splitlines()
@@ -149,18 +116,12 @@ class ChangeGenerator:
         # Build the new docstring.
         docstring_lines = content.splitlines()
 
-        docstring = [
-            f'{indentation}"""{docstring_lines[0]}'
-        ]
+        docstring = [f'{indentation}"""{docstring_lines[0]}']
 
         for line in docstring_lines[1:]:
-            docstring.append(
-                f"{indentation}{line}"
-            )
+            docstring.append(f"{indentation}{line}")
 
-        docstring.append(
-            f'{indentation}"""'
-        )
+        docstring.append(f'{indentation}"""')
 
         # Check whether the function/class already has a docstring.
         body_start = 1
@@ -168,12 +129,9 @@ class ChangeGenerator:
         while body_start < len(lines) and not lines[body_start].strip():
             body_start += 1
 
-        if (
-                body_start < len(lines)
-                and (
-                lines[body_start].strip().startswith('"""')
-                or lines[body_start].strip().startswith("'''")
-        )
+        if body_start < len(lines) and (
+            lines[body_start].strip().startswith('"""')
+            or lines[body_start].strip().startswith("'''")
         ):
             quote = lines[body_start].strip()[:3]
 
@@ -181,9 +139,8 @@ class ChangeGenerator:
             docstring_end = body_start
 
             while docstring_end < len(lines):
-                if (
-                        docstring_end > body_start
-                        and lines[docstring_end].strip().endswith(quote)
+                if docstring_end > body_start and lines[docstring_end].strip().endswith(
+                    quote
                 ):
                     break
 
@@ -191,14 +148,8 @@ class ChangeGenerator:
 
             # Replace existing docstring.
             return "\n".join(
-                lines[:body_start]
-                + docstring
-                + lines[docstring_end + 1:]
+                lines[:body_start] + docstring + lines[docstring_end + 1 :]
             )
 
         # No existing docstring → insert one.
-        return "\n".join(
-            [lines[0]]
-            + docstring
-            + lines[1:]
-        )
+        return "\n".join([lines[0]] + docstring + lines[1:])

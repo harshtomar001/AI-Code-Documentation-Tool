@@ -1,14 +1,13 @@
 """Coordinate AI documentation generation and source-change creation."""
 
+from ..exceptions import AIProviderError
 from ..models.input import AIInput
 from ..models.results import AIResult
-from ..exceptions import AIProviderError
 from .change_generator import ChangeGenerator
 from .context_builder import ContextBuilder
 from .prompt_builder import DocumentationPromptBuilder
 from .provider import AIProvider
 from .structured_output import StructuredOutputParser
-
 
 
 class AIService:
@@ -20,7 +19,7 @@ class AIService:
         context_builder: ContextBuilder,
         prompt_builder: DocumentationPromptBuilder,
         output_parser: StructuredOutputParser,
-        change_generator: ChangeGenerator
+        change_generator: ChangeGenerator,
     ):
         """Initialize the AI documentation service.
 

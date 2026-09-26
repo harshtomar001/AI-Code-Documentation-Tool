@@ -1,19 +1,20 @@
 from core_ai.ai.change_generator import ChangeGenerator
 from core_ai.models.analysis import (
     AnalysisResult,
+    ClassAnalysis,
     FileAnalysis,
     FunctionAnalysis,
+    MethodAnalysis,
 )
 from core_ai.models.documentation import (
-    DocumentationResult,
-    DocumentationFile,
     DocumentationChange,
+    DocumentationFile,
+    DocumentationResult,
 )
 from core_ai.models.security import SanitizedFile
 
 
 def test_existing_docstring_is_replaced():
-
     source = '''def calculate_discount(price, premium):
     """
     Old documentation.
@@ -26,12 +27,7 @@ def test_existing_docstring_is_replaced():
     return price
 '''
 
-    files = [
-        SanitizedFile(
-            path="app.py",
-            content=source
-        )
-    ]
+    files = [SanitizedFile(path="app.py", content=source)]
 
     analysis = AnalysisResult(
         files=[
@@ -45,10 +41,10 @@ def test_existing_docstring_is_replaced():
                         line_end=9,
                         parameters=["price", "premium"],
                         has_docstring=True,
-                        is_public=True
+                        is_public=True,
                     )
                 ],
-                classes=[]
+                classes=[],
             )
         ]
     )
@@ -66,49 +62,30 @@ def test_existing_docstring_is_replaced():
                             "Args:\n"
                             "    price: Original price.\n"
                             "    premium: Whether the user is premium."
-                        )
+                        ),
                     )
-                ]
+                ],
             )
         ]
     )
 
-    generator = ChangeGenerator()
-
-    changes = generator.generate(
-        documentation,
-        analysis,
-        files
-    )
+    changes = ChangeGenerator().generate(documentation, analysis, files)
 
     assert len(changes) == 1
+    assert "Calculate discount based on premium status." in changes[0].after
+    assert "Old documentation." not in changes[0].after
+    assert changes[0].after.count('"""') == 2
 
-    after = changes[0].after
-
-    # New documentation exists.
-    assert "Calculate discount based on premium status." in after
-
-    # Old documentation was removed.
-    assert "Old documentation." not in after
-
-    # There should only be one docstring.
-    assert after.count('"""') == 2
 
 def test_missing_docstring_is_inserted():
-
-    source = '''def calculate_discount(price, premium):
+    source = """def calculate_discount(price, premium):
     if premium:
         return price * 0.8
 
     return price
-'''
+"""
 
-    files = [
-        SanitizedFile(
-            path="app.py",
-            content=source
-        )
-    ]
+    files = [SanitizedFile(path="app.py", content=source)]
 
     analysis = AnalysisResult(
         files=[
@@ -122,10 +99,10 @@ def test_missing_docstring_is_inserted():
                         line_end=5,
                         parameters=["price", "premium"],
                         has_docstring=False,
-                        is_public=True
+                        is_public=True,
                     )
                 ],
-                classes=[]
+                classes=[],
             )
         ]
     )
@@ -138,45 +115,524 @@ def test_missing_docstring_is_inserted():
                     DocumentationChange(
                         type="docstring",
                         target="calculate_discount",
-                        content=(
-                            "Calculate discount based on premium status.\n\n"
-                            "Args:\n"
-                            "    price: Original price.\n"
-                            "    premium: Whether the user is premium."
-                        )
+                        content="Calculate discount based on premium status.",
                     )
-                ]
+                ],
             )
         ]
     )
 
-    generator = ChangeGenerator()
+    changes = ChangeGenerator().generate(documentation, analysis, files)
 
-    changes = generator.generate(
+    assert len(changes) == 1
+    assert "Calculate discount based on premium status." in changes[0].after
+    assert "if premium:" in changes[0].after
+    assert "return price * 0.8" in changes[0].after
+    assert changes[0].after.count('"""') == 2
+
+
+def test_non_docstring_change_is_ignored():
+    source = """def hello():
+    return "hello"
+"""
+
+    files = [SanitizedFile(path="app.py", content=source)]
+
+    analysis = AnalysisResult(
+        files=[
+            FileAnalysis(
+                path="app.py",
+                language="python",
+                functions=[
+                    FunctionAnalysis(
+                        name="hello",
+                        line_start=1,
+                        line_end=2,
+                        parameters=[],
+                        has_docstring=False,
+                        is_public=True,
+                    )
+                ],
+                classes=[],
+            )
+        ]
+    )
+
+    documentation = DocumentationResult(
+        files=[
+            DocumentationFile(
+                path="app.py",
+                changes=[
+                    DocumentationChange(
+                        type="comment",
+                        target="hello",
+                        content="This is a comment.",
+                    )
+                ],
+            )
+        ]
+    )
+
+    changes = ChangeGenerator().generate(documentation, analysis, files)
+
+    assert changes == []
+
+
+def test_missing_source_file_is_ignored():
+    analysis = AnalysisResult(
+        files=[
+            FileAnalysis(
+                path="app.py",
+                language="python",
+                functions=[],
+                classes=[],
+            )
+        ]
+    )
+
+    documentation = DocumentationResult(
+        files=[
+            DocumentationFile(
+                path="missing.py",
+                changes=[
+                    DocumentationChange(
+                        type="docstring",
+                        target="hello",
+                        content="Say hello.",
+                    )
+                ],
+            )
+        ]
+    )
+
+    changes = ChangeGenerator().generate(
         documentation,
         analysis,
-        files
+        [],
+    )
+
+    assert changes == []
+
+
+def test_missing_analysis_file_is_ignored():
+    source = """def hello():
+    return "hello"
+"""
+
+    files = [SanitizedFile(path="app.py", content=source)]
+
+    documentation = DocumentationResult(
+        files=[
+            DocumentationFile(
+                path="app.py",
+                changes=[
+                    DocumentationChange(
+                        type="docstring",
+                        target="hello",
+                        content="Say hello.",
+                    )
+                ],
+            )
+        ]
+    )
+
+    changes = ChangeGenerator().generate(
+        documentation,
+        AnalysisResult(files=[]),
+        files,
+    )
+
+    assert changes == []
+
+
+def test_missing_target_is_ignored():
+    source = """def hello():
+    return "hello"
+"""
+
+    files = [SanitizedFile(path="app.py", content=source)]
+
+    analysis = AnalysisResult(
+        files=[
+            FileAnalysis(
+                path="app.py",
+                language="python",
+                functions=[],
+                classes=[],
+            )
+        ]
+    )
+
+    documentation = DocumentationResult(
+        files=[
+            DocumentationFile(
+                path="app.py",
+                changes=[
+                    DocumentationChange(
+                        type="docstring",
+                        target="missing_function",
+                        content="Missing function.",
+                    )
+                ],
+            )
+        ]
+    )
+
+    changes = ChangeGenerator().generate(
+        documentation,
+        analysis,
+        files,
+    )
+
+    assert changes == []
+
+
+def test_class_target_is_found():
+    source = """class Calculator:
+    pass
+"""
+
+    files = [SanitizedFile(path="app.py", content=source)]
+
+    analysis = AnalysisResult(
+        files=[
+            FileAnalysis(
+                path="app.py",
+                language="python",
+                functions=[],
+                classes=[
+                    ClassAnalysis(
+                        name="Calculator",
+                        line_start=1,
+                        line_end=2,
+                        has_docstring=False,
+                        is_public=True,
+                        methods=[],
+                    )
+                ],
+            )
+        ]
+    )
+
+    documentation = DocumentationResult(
+        files=[
+            DocumentationFile(
+                path="app.py",
+                changes=[
+                    DocumentationChange(
+                        type="docstring",
+                        target="Calculator",
+                        content="Perform calculations.",
+                    )
+                ],
+            )
+        ]
+    )
+
+    changes = ChangeGenerator().generate(
+        documentation,
+        analysis,
+        files,
     )
 
     assert len(changes) == 1
+    assert "Perform calculations." in changes[0].after
+
+
+def test_method_target_is_found():
+    source = """class Calculator:
+    def add(self, a, b):
+        return a + b
+"""
+
+    files = [SanitizedFile(path="app.py", content=source)]
+
+    analysis = AnalysisResult(
+        files=[
+            FileAnalysis(
+                path="app.py",
+                language="python",
+                functions=[],
+                classes=[
+                    ClassAnalysis(
+                        name="Calculator",
+                        line_start=1,
+                        line_end=3,
+                        has_docstring=False,
+                        is_public=True,
+                        methods=[
+                            MethodAnalysis(
+                                name="add",
+                                line_start=2,
+                                line_end=3,
+                                parameters=["self", "a", "b"],
+                                has_docstring=False,
+                                is_public=True,
+                            )
+                        ],
+                    )
+                ],
+            )
+        ]
+    )
+
+    documentation = DocumentationResult(
+        files=[
+            DocumentationFile(
+                path="app.py",
+                changes=[
+                    DocumentationChange(
+                        type="docstring",
+                        target="add",
+                        content="Add two numbers.",
+                    )
+                ],
+            )
+        ]
+    )
+
+    changes = ChangeGenerator().generate(
+        documentation,
+        analysis,
+        files,
+    )
+
+    assert len(changes) == 1
+    assert "Add two numbers." in changes[0].after
+
+
+def test_multiline_docstring_is_inserted():
+    source = """def hello():
+    return "hello"
+"""
+
+    files = [SanitizedFile(path="app.py", content=source)]
+
+    analysis = AnalysisResult(
+        files=[
+            FileAnalysis(
+                path="app.py",
+                language="python",
+                functions=[
+                    FunctionAnalysis(
+                        name="hello",
+                        line_start=1,
+                        line_end=2,
+                        parameters=[],
+                        has_docstring=False,
+                        is_public=True,
+                    )
+                ],
+                classes=[],
+            )
+        ]
+    )
+
+    documentation = DocumentationResult(
+        files=[
+            DocumentationFile(
+                path="app.py",
+                changes=[
+                    DocumentationChange(
+                        type="docstring",
+                        target="hello",
+                        content="Say hello.\n\nReturns:\n    A greeting.",
+                    )
+                ],
+            )
+        ]
+    )
+
+    changes = ChangeGenerator().generate(
+        documentation,
+        analysis,
+        files,
+    )
 
     after = changes[0].after
 
-    # New documentation was inserted.
-    assert "Calculate discount based on premium status." in after
-
-    # Original function body is still present.
-    assert "if premium:" in after
-    assert "return price * 0.8" in after
-
-    # Exactly one docstring was added.
+    assert "Say hello." in after
+    assert "Returns:" in after
+    assert "A greeting." in after
     assert after.count('"""') == 2
 
 
+def test_single_quote_docstring_is_replaced():
+    source = """def hello():
+    '''Old documentation.'''
+    return "hello"
+"""
 
-if __name__ == "__main__":
-    test_existing_docstring_is_replaced()
-    print("PASS: existing docstring is replaced")
+    files = [SanitizedFile(path="app.py", content=source)]
 
-    test_missing_docstring_is_inserted()
-    print("PASS: missing docstring is inserted")
+    analysis = AnalysisResult(
+        files=[
+            FileAnalysis(
+                path="app.py",
+                language="python",
+                functions=[
+                    FunctionAnalysis(
+                        name="hello",
+                        line_start=1,
+                        line_end=3,
+                        parameters=[],
+                        has_docstring=True,
+                        is_public=True,
+                    )
+                ],
+                classes=[],
+            )
+        ]
+    )
+
+    documentation = DocumentationResult(
+        files=[
+            DocumentationFile(
+                path="app.py",
+                changes=[
+                    DocumentationChange(
+                        type="docstring",
+                        target="hello",
+                        content="New documentation.",
+                    )
+                ],
+            )
+        ]
+    )
+
+    changes = ChangeGenerator().generate(
+        documentation,
+        analysis,
+        files,
+    )
+
+    after = changes[0].after
+
+    assert "New documentation." in after
+    assert "Old documentation." not in after
+
+
+def test_existing_docstring_after_blank_lines_is_replaced():
+    source = """def hello():
+
+
+    '''Old documentation.'''
+    return "hello"
+"""
+
+    files = [SanitizedFile(path="app.py", content=source)]
+
+    analysis = AnalysisResult(
+        files=[
+            FileAnalysis(
+                path="app.py",
+                language="python",
+                functions=[
+                    FunctionAnalysis(
+                        name="hello",
+                        line_start=1,
+                        line_end=5,
+                        parameters=[],
+                        has_docstring=True,
+                        is_public=True,
+                    )
+                ],
+                classes=[],
+            )
+        ]
+    )
+
+    documentation = DocumentationResult(
+        files=[
+            DocumentationFile(
+                path="app.py",
+                changes=[
+                    DocumentationChange(
+                        type="docstring",
+                        target="hello",
+                        content="New documentation.",
+                    )
+                ],
+            )
+        ]
+    )
+
+    changes = ChangeGenerator().generate(
+        documentation,
+        analysis,
+        files,
+    )
+
+    after = changes[0].after
+
+    assert "New documentation." in after
+    assert "Old documentation." not in after
+
+
+def test_empty_source_returns_empty_string():
+    generator = ChangeGenerator()
+
+    result = generator._insert_docstring(
+        source="",
+        line_start=1,
+        content="Documentation.",
+    )
+
+    assert result == ""
+
+
+def test_docstring_change_contains_before_after_metadata():
+    source = """def hello():
+    return "hello"
+"""
+
+    files = [SanitizedFile(path="app.py", content=source)]
+
+    analysis = AnalysisResult(
+        files=[
+            FileAnalysis(
+                path="app.py",
+                language="python",
+                functions=[
+                    FunctionAnalysis(
+                        name="hello",
+                        line_start=1,
+                        line_end=2,
+                        parameters=[],
+                        has_docstring=False,
+                        is_public=True,
+                    )
+                ],
+                classes=[],
+            )
+        ]
+    )
+
+    documentation = DocumentationResult(
+        files=[
+            DocumentationFile(
+                path="app.py",
+                changes=[
+                    DocumentationChange(
+                        type="docstring",
+                        target="hello",
+                        content="Say hello.",
+                    )
+                ],
+            )
+        ]
+    )
+
+    changes = ChangeGenerator().generate(
+        documentation,
+        analysis,
+        files,
+    )
+
+    change = changes[0]
+
+    assert change.file == "app.py"
+    assert change.target == "hello"
+    assert change.type == "docstring"
+    assert "def hello():" in change.before
+    assert "Say hello." in change.after

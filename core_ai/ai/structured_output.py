@@ -1,8 +1,11 @@
 import json
+
 from pydantic import ValidationError
+
 from ..models.documentation import DocumentationResult
 
 """Parse and validate structured AI documentation output."""
+
 
 class StructuredOutputParser:
     """Parse AI responses into validated documentation results."""
@@ -39,9 +42,7 @@ class StructuredOutputParser:
             data = json.loads(response)
 
         except json.JSONDecodeError as exc:
-            raise ValueError(
-                "AI response is not valid JSON"
-            ) from exc
+            raise ValueError("AI response is not valid JSON") from exc
 
         try:
             return DocumentationResult.model_validate(data)

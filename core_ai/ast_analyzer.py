@@ -2,25 +2,20 @@ import ast
 
 from .models.analysis import (
     AnalysisResult,
+    ClassAnalysis,
     FileAnalysis,
     FunctionAnalysis,
-    ClassAnalysis,
     MethodAnalysis,
 )
 from .models.scanner import SourceFile
 
 
 class ASTAnalyzer:
-
-    def analyze(
-        self,
-        files: list[SourceFile]
-    ) -> AnalysisResult:
+    def analyze(self, files: list[SourceFile]) -> AnalysisResult:
 
         analyzed_files = []
 
         for file in files:
-
             if file.language != "python":
                 continue
 
@@ -33,16 +28,11 @@ class ASTAnalyzer:
             classes = []
 
             for node in tree.body:
-
                 if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
-                    functions.append(
-                        self._analyze_function(node)
-                    )
+                    functions.append(self._analyze_function(node))
 
                 elif isinstance(node, ast.ClassDef):
-                    classes.append(
-                        self._analyze_class(node)
-                    )
+                    classes.append(self._analyze_class(node))
 
             analyzed_files.append(
                 FileAnalysis(
@@ -53,9 +43,7 @@ class ASTAnalyzer:
                 )
             )
 
-        return AnalysisResult(
-            files=analyzed_files
-        )
+        return AnalysisResult(files=analyzed_files)
 
     def _analyze_function(self, node):
 
@@ -73,14 +61,8 @@ class ASTAnalyzer:
         methods = []
 
         for child in node.body:
-
-            if isinstance(
-                child,
-                (ast.FunctionDef, ast.AsyncFunctionDef)
-            ):
-                methods.append(
-                    self._analyze_method(child)
-                )
+            if isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                methods.append(self._analyze_method(child))
 
         return ClassAnalysis(
             name=node.name,

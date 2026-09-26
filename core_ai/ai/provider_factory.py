@@ -28,6 +28,4 @@ class ProviderFactory:
         if provider_name == "openrouter":
             return OpenRouterProvider()
 
-        raise ValueError(
-            f"Unsupported AI provider: {provider_name}"
-        )
+        raise ValueError(f"Unsupported AI provider: {provider_name}")

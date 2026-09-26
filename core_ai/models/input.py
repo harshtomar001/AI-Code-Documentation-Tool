@@ -1,7 +1,7 @@
 from pydantic import BaseModel, Field
 
 from .analysis import AnalysisResult
-from .security import SecurityResult, SanitizedFile
+from .security import SanitizedFile, SecurityResult
 
 
 class RepositoryInfo(BaseModel):

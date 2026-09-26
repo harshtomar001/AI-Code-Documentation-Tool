@@ -56,9 +56,7 @@ class OpenRouterProvider(AIProvider):
             content = response.choices[0].message.content
 
             if content is None:
-                raise AIProviderError(
-                    "OpenRouter returned an empty response"
-                )
+                raise AIProviderError("OpenRouter returned an empty response")
 
             return content
 

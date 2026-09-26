@@ -24,3 +24,33 @@ core-ai-demo = "core_ai.run_demo:main"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+
+
+[tool.coverage.run]
+omit = [
+    "core_ai/run_demo.py",
+    "core_ai/demo_project/*",
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+]
+
+[tool.ruff]
+line-length = 88
+target-version = "py311"
+
+[tool.ruff.lint]
+select = [
+    "E",
+    "F",
+    "I",
+    "UP",
+    "B",
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = [
+    "B",
+]

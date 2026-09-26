@@ -8,7 +8,7 @@ from .documentation_analysis import (
 from .input import AIInput
 from .results import AIResult
 from .scanner import SourceFile
-from .security import SecurityResult, SanitizedFile
+from .security import SanitizedFile, SecurityResult
 
 
 class PipelineResult(BaseModel):
@@ -22,9 +22,7 @@ class PipelineResult(BaseModel):
 
     security: SecurityResult
 
-    sanitized_files: list[SanitizedFile] = Field(
-        default_factory=list
-    )
+    sanitized_files: list[SanitizedFile] = Field(default_factory=list)
 
     ai_input: AIInput | None = None
 

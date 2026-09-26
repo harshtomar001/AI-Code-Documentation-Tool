@@ -1,13 +1,11 @@
 from core_ai.models.scanner import SourceFile
-from core_ai.security_scanner import SecurityScanner
 from core_ai.redactor import Redactor
+from core_ai.security_scanner import SecurityScanner
 
 
 def test_redactor_removes_detected_secret():
     source = SourceFile(
-        path="config.py",
-        language="python",
-        content='API_KEY = "super-secret-key"'
+        path="config.py", language="python", content='API_KEY = "super-secret-key"'
     )
 
     scanner = SecurityScanner()
@@ -22,9 +20,7 @@ def test_redactor_removes_detected_secret():
 
 def test_redactor_preserves_non_sensitive_code():
     source = SourceFile(
-        path="sample.py",
-        language="python",
-        content="x = 10\ny = 20\nresult = x + y"
+        path="sample.py", language="python", content="x = 10\ny = 20\nresult = x + y"
     )
 
     scanner = SecurityScanner()

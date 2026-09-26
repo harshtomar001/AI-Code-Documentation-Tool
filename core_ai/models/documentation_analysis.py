@@ -1,6 +1,6 @@
-from pydantic import BaseModel, Field
 from typing import Literal
 
+from pydantic import BaseModel, Field
 
 
 class DocumentationIssue(BaseModel):
@@ -13,8 +13,6 @@ class DocumentationIssue(BaseModel):
 
 class DocumentationCheckResult(BaseModel):
     issues: list[DocumentationIssue] = Field(default_factory=list)
-
-
 
 
 class StaleDocumentationIssue(BaseModel):

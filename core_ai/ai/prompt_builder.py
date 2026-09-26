@@ -1,7 +1,7 @@
 """Build prompts for AI-powered code documentation generation."""
 
-class DocumentationPromptBuilder:
 
+class DocumentationPromptBuilder:
     """Build structured prompts for documentation generation."""
 
     def build(self, context: str) -> str:

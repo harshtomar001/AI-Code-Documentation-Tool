@@ -41,14 +41,12 @@ class Redactor:
         sanitized_files: list[SanitizedFile] = []
 
         for file in files:
-
             file_matches = matches_by_file.get(
                 file.path,
                 [],
             )
 
             if not file_matches:
-
                 sanitized_files.append(
                     SanitizedFile(
                         path=file.path,
@@ -70,11 +68,8 @@ class Redactor:
             content = file.content
 
             for match in file_matches:
-
                 content = (
-                    content[:match.start]
-                    + match.replacement
-                    + content[match.end:]
+                    content[: match.start] + match.replacement + content[match.end :]
                 )
 
             sanitized_files.append(

@@ -3,8 +3,8 @@ from core_ai.ai.context_builder import ContextBuilder
 from core_ai.ai.prompt_builder import DocumentationPromptBuilder
 from core_ai.ai.service import AIService
 from core_ai.ai.structured_output import StructuredOutputParser
-from core_ai.pipeline import CorePipeline
 from core_ai.exceptions import AIProviderError, PipelineError
+from core_ai.pipeline import CorePipeline
 
 
 class FakeAIProvider:
@@ -26,6 +26,7 @@ class FakeAIProvider:
     "readme": "# Sample Project"
 }
 """
+
 
 class FailingAIProvider:
     def generate(self, prompt: str) -> str:
@@ -61,9 +62,7 @@ def test_pipeline_runs_without_ai():
 
 
 def test_pipeline_runs_with_fake_ai():
-    pipeline = CorePipeline(
-        ai_service=create_ai_service()
-    )
+    pipeline = CorePipeline(ai_service=create_ai_service())
 
     result = pipeline.run(
         repository_path="core_ai/demo_project",

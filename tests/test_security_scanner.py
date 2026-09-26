@@ -6,7 +6,7 @@ def test_security_scanner_detects_secret():
     source = SourceFile(
         path="config.py",
         language="python",
-        content='API_KEY = "super-secret-key"'
+        content='API_KEY = "super-secret-key"',
     )
 
     scanner = SecurityScanner()
@@ -20,10 +20,29 @@ def test_security_scanner_does_not_flag_normal_code():
     source = SourceFile(
         path="sample.py",
         language="python",
-        content="x = 10\ny = 20\nresult = x + y"
+        content="x = 10\ny = 20\nresult = x + y",
     )
 
     scanner = SecurityScanner()
     matches = scanner.scan([source])
 
     assert len(matches) == 0
+
+
+def test_security_scanner_handles_non_key_value_pattern():
+    source = SourceFile(
+        path="keys.txt",
+        language="text",
+        content="-----BEGIN RSA PRIVATE KEY-----",
+    )
+
+    scanner = SecurityScanner()
+    matches = scanner.scan([source])
+
+    private_key_matches = [
+        match for match in matches if match.category == "private_key"
+    ]
+
+    assert len(private_key_matches) == 1
+    assert private_key_matches[0].start == 0
+    assert private_key_matches[0].end == len("-----BEGIN RSA PRIVATE KEY-----")

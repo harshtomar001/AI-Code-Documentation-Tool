@@ -1,19 +1,17 @@
 import sys
 from pathlib import Path
-from .config import load_environment
-from dotenv import load_dotenv
 
-from .pipeline import CorePipeline
-from .ai.service import AIService
+from .ai.change_generator import ChangeGenerator
 from .ai.context_builder import ContextBuilder
 from .ai.prompt_builder import DocumentationPromptBuilder
-from .ai.structured_output import StructuredOutputParser
-from .ai.change_generator import ChangeGenerator
 from .ai.provider_factory import ProviderFactory
+from .ai.service import AIService
+from .ai.structured_output import StructuredOutputParser
+from .config import load_environment
+from .pipeline import CorePipeline
 
 
 def main():
-
 
     load_environment()
 
@@ -39,7 +37,6 @@ def main():
     # Create AI components
     # --------------------------------------------------
 
-
     provider = ProviderFactory.create()
 
     context_builder = ContextBuilder()
@@ -62,9 +59,7 @@ def main():
     # Create Core Pipeline
     # --------------------------------------------------
 
-    pipeline = CorePipeline(
-        ai_service=ai_service
-    )
+    pipeline = CorePipeline(ai_service=ai_service)
 
     # --------------------------------------------------
     # Run complete pipeline
@@ -114,19 +109,10 @@ def main():
     print("=" * 70)
 
     if result.documentation_check.issues:
-
-        print(
-            f"Undocumented items: "
-            f"{len(result.documentation_check.issues)}"
-        )
+        print(f"Undocumented items: {len(result.documentation_check.issues)}")
 
         for issue in result.documentation_check.issues:
-
-            print(
-                f"  - {issue.file}:{issue.line} "
-                f"{issue.target} "
-                f"({issue.type})"
-            )
+            print(f"  - {issue.file}:{issue.line} {issue.target} ({issue.type})")
 
     else:
         print("No undocumented public items found.")
@@ -140,22 +126,12 @@ def main():
     print("=" * 70)
 
     if result.stale_documentation.issues:
-
-        print(
-            f"Stale documentation issues: "
-            f"{len(result.stale_documentation.issues)}"
-        )
+        print(f"Stale documentation issues: {len(result.stale_documentation.issues)}")
 
         for issue in result.stale_documentation.issues:
+            print(f"  - {issue.file}:{issue.line} {issue.target}")
 
-            print(
-                f"  - {issue.file}:{issue.line} "
-                f"{issue.target}"
-            )
-
-            print(
-                f"    {issue.details}"
-            )
+            print(f"    {issue.details}")
 
     else:
         print("No stale documentation found.")
@@ -169,14 +145,9 @@ def main():
     print("=" * 70)
 
     if result.security.findings:
-
-        print(
-            f"Security findings: "
-            f"{len(result.security.findings)}"
-        )
+        print(f"Security findings: {len(result.security.findings)}")
 
         for finding in result.security.findings:
-
             print(
                 f"  - [{finding.type}] "
                 f"{finding.category} "
@@ -195,7 +166,6 @@ def main():
     print("=" * 70)
 
     for file in result.sanitized_files:
-
         print(f"\n--- {file.path} ---")
         print(file.content)
 
@@ -208,7 +178,6 @@ def main():
     print("=" * 70)
 
     if result.ai_result is None:
-
         print("AI generation did not run.")
         return
 
@@ -219,11 +188,9 @@ def main():
     # --------------------------------------------------
 
     for file in documentation.files:
-
         print(f"\nFILE: {file.path}")
 
         for change in file.changes:
-
             print(f"\nTarget: {change.target}")
             print(f"Type:   {change.type}")
 
@@ -235,7 +202,6 @@ def main():
     # ==================================================
 
     if documentation.readme:
-
         print("\n" + "=" * 70)
         print("GENERATED README")
         print("=" * 70)
@@ -253,13 +219,10 @@ def main():
     changes = result.ai_result.changes
 
     if not changes:
-
         print("No changes generated.")
 
     else:
-
         for index, change in enumerate(changes, start=1):
-
             print(f"\nCHANGE {index}")
             print("-" * 70)
 

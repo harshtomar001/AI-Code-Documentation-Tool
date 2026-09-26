@@ -3,10 +3,10 @@
 import os
 
 from google import genai
+from google.genai.errors import ServerError
 
 from ..exceptions import AIProviderError
 from .provider import AIProvider
-from google.genai.errors import ServerError
 from .retry import retry_with_backoff
 
 
@@ -47,9 +47,7 @@ class GeminiProvider(AIProvider):
             )
 
             if response.text is None:
-                raise AIProviderError(
-                    "Gemini returned an empty response"
-                )
+                raise AIProviderError("Gemini returned an empty response")
 
             return response.text
 

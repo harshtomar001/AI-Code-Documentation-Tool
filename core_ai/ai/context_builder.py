@@ -57,9 +57,7 @@ class ContextBuilder:
             Formatted information about analyzed files, functions,
             classes, and methods.
         """
-        lines: list[str] = [
-            "## Code Analysis"
-        ]
+        lines: list[str] = ["## Code Analysis"]
 
         for file in data.analysis.files:
             lines.append("")
@@ -142,9 +140,7 @@ class ContextBuilder:
         Returns:
             Formatted sanitized source code for all analyzed files.
         """
-        lines: list[str] = [
-            "## Sanitized Source Code"
-        ]
+        lines: list[str] = ["## Sanitized Source Code"]
 
         for file in data.files:
             lines.append("")
@@ -152,6 +148,3 @@ class ContextBuilder:
             lines.append(file.content)
 
         return "\n".join(lines)
-
-
-

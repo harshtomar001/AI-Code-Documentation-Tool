@@ -44,26 +44,18 @@ class FileScanner:
         root = Path(repository_path)
 
         if not root.exists():
-            raise FileNotFoundError(
-                f"Repository does not exist: {repository_path}"
-            )
+            raise FileNotFoundError(f"Repository does not exist: {repository_path}")
 
         if not root.is_dir():
-            raise ValueError(
-                f"Repository path is not a directory: {repository_path}"
-            )
+            raise ValueError(f"Repository path is not a directory: {repository_path}")
 
         files: list[SourceFile] = []
 
         for path in root.rglob("*"):
-
             if not path.is_file():
                 continue
 
-            if any(
-                ignored in path.parts
-                for ignored in self.IGNORED_DIRECTORIES
-            ):
+            if any(ignored in path.parts for ignored in self.IGNORED_DIRECTORIES):
                 continue
 
             language = self.SUPPORTED_EXTENSIONS.get(path.suffix.lower())
@@ -72,9 +64,7 @@ class FileScanner:
                 continue
 
             try:
-                content = path.read_text(
-                    encoding="utf-8"
-                )
+                content = path.read_text(encoding="utf-8")
             except UnicodeDecodeError:
                 continue
 

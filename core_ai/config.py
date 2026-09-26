@@ -25,9 +25,7 @@ def validate_environment() -> None:
 
     if provider == "gemini":
         if not os.getenv("GEMINI_API_KEY"):
-            raise ValueError(
-                "GEMINI_API_KEY is required when AI_PROVIDER=gemini"
-            )
+            raise ValueError("GEMINI_API_KEY is required when AI_PROVIDER=gemini")
 
     elif provider == "openrouter":
         if not os.getenv("OPENROUTER_API_KEY"):
@@ -36,6 +34,4 @@ def validate_environment() -> None:
             )
 
     else:
-        raise ValueError(
-            f"Unsupported AI_PROVIDER: {provider}"
-        )
+        raise ValueError(f"Unsupported AI_PROVIDER: {provider}")

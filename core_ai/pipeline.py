@@ -15,10 +15,10 @@ This module orchestrates the complete code documentation analysis workflow:
 from .ai.service import AIService
 from .ast_analyzer import ASTAnalyzer
 from .documentation_checker import DocumentationChecker
+from .exceptions import PipelineError
 from .models.input import AIInput, RepositoryInfo
 from .models.pipelines import PipelineResult
 from .models.results import AIResult
-from .exceptions import PipelineError
 from .models.security import SecurityFinding, SecurityResult
 from .redactor import Redactor
 from .scanner import FileScanner
@@ -70,8 +70,6 @@ class CorePipeline:
         """
 
         try:
-
-
             # M1: Scan repository
 
             files = self.file_scanner.scan(repository_path)
@@ -82,9 +80,7 @@ class CorePipeline:
 
             # M3: Find undocumented public APIs
 
-            documentation_check = self.documentation_checker.check(
-                analysis
-            )
+            documentation_check = self.documentation_checker.check(analysis)
 
             # M4: Find stale documentation
 
@@ -98,7 +94,6 @@ class CorePipeline:
             security_matches = self.security_scanner.scan(files)
 
             # M6: Redact sensitive information
-
 
             sanitized_files = self.redactor.redact(
                 files,
@@ -125,14 +120,10 @@ class CorePipeline:
 
             # Build AI input
 
-
             ai_input = AIInput(
                 repository=RepositoryInfo(
                     name=repository_name,
-                    files=[
-                        file.path
-                        for file in files
-                    ],
+                    files=[file.path for file in files],
                 ),
                 analysis=analysis,
                 security=security_result,
@@ -141,13 +132,10 @@ class CorePipeline:
 
             # AI generation
 
-
             ai_result: AIResult | None = None
 
             if self.ai_service is not None:
-                ai_result = self.ai_service.generate_documentation(
-                    ai_input
-                )
+                ai_result = self.ai_service.generate_documentation(ai_input)
 
             return PipelineResult(
                 files=files,
@@ -160,15 +148,8 @@ class CorePipeline:
                 ai_result=ai_result,
             )
 
-
         except PipelineError:
-
             raise
 
         except Exception as exc:
-
-            raise PipelineError(
-
-                "Core AI pipeline failed"
-
-            ) from exc
+            raise PipelineError("Core AI pipeline failed") from exc

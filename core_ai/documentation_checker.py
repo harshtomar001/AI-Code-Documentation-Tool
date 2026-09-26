@@ -30,10 +30,8 @@ class DocumentationChecker:
         issues: list[DocumentationIssue] = []
 
         for file in analysis.files:
-
             # Check functions
             for function in file.functions:
-
                 if function.is_public and not function.has_docstring:
                     issues.append(
                         DocumentationIssue(
@@ -47,7 +45,6 @@ class DocumentationChecker:
 
             # Check classes
             for cls in file.classes:
-
                 if cls.is_public and not cls.has_docstring:
                     issues.append(
                         DocumentationIssue(
@@ -61,7 +58,6 @@ class DocumentationChecker:
 
                 # Check methods
                 for method in cls.methods:
-
                     if method.is_public and not method.has_docstring:
                         issues.append(
                             DocumentationIssue(
@@ -73,6 +69,4 @@ class DocumentationChecker:
                             )
                         )
 
-        return DocumentationCheckResult(
-            issues=issues
-        )
+        return DocumentationCheckResult(issues=issues)
