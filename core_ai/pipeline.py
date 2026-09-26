@@ -114,7 +114,6 @@ class CorePipeline:
             ]
 
             security_result = SecurityResult(
-                safe_for_ai=not security_findings,
                 findings=security_findings,
             )
 

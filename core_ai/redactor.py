@@ -33,18 +33,12 @@ class Redactor:
         matches_by_file: dict[str, list[SecurityMatch]] = {}
 
         for match in matches:
-            matches_by_file.setdefault(
-                match.file,
-                [],
-            ).append(match)
+            matches_by_file.setdefault(match.file, []).append(match)
 
         sanitized_files: list[SanitizedFile] = []
 
         for file in files:
-            file_matches = matches_by_file.get(
-                file.path,
-                [],
-            )
+            file_matches = matches_by_file.get(file.path, [])
 
             if not file_matches:
                 sanitized_files.append(
@@ -53,21 +47,36 @@ class Redactor:
                         content=file.content,
                     )
                 )
-
                 continue
 
-            # Process from right to left so that replacing
-            # one match doesn't change the positions of
-            # matches that come before it.
-            file_matches = sorted(
-                file_matches,
-                key=lambda match: match.start,
-                reverse=True,
-            )
+            # First select non-overlapping matches from left to right.
+            # This makes overlapping results deterministic: the earliest
+            # match wins.
+            selected_matches: list[SecurityMatch] = []
+            next_start = -1
 
+            for match in sorted(
+                file_matches,
+                key=lambda item: (item.start, item.end),
+            ):
+                if (
+                    match.start < 0
+                    or match.end > len(file.content)
+                    or match.start >= match.end
+                ):
+                    continue
+
+                if match.start < next_start:
+                    continue
+
+                selected_matches.append(match)
+                next_start = match.end
+
+            # Apply replacements from right to left so original offsets
+            # remain valid.
             content = file.content
 
-            for match in file_matches:
+            for match in reversed(selected_matches):
                 content = (
                     content[: match.start] + match.replacement + content[match.end :]
                 )

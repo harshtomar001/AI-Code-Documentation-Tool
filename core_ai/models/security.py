@@ -1,6 +1,6 @@
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 
 class SecurityFinding(BaseModel):
@@ -12,8 +12,14 @@ class SecurityFinding(BaseModel):
 
 
 class SecurityResult(BaseModel):
-    safe_for_ai: bool
+    safe_for_ai: bool = True
     findings: list[SecurityFinding] = Field(default_factory=list)
+
+    @model_validator(mode="after")
+    def calculate_safety(self) -> "SecurityResult":
+        """Derive AI safety from whether security findings exist."""
+        self.safe_for_ai = not self.findings
+        return self
 
 
 class SanitizedFile(BaseModel):
