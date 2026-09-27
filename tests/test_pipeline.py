@@ -1,3 +1,5 @@
+from pathlib import Path
+
 from core_ai.ai.change_generator import ChangeGenerator
 from core_ai.ai.context_builder import ContextBuilder
 from core_ai.ai.prompt_builder import DocumentationPromptBuilder
@@ -97,3 +99,29 @@ def test_ai_provider_error_becomes_pipeline_error():
         assert str(exc.__cause__) == "Provider failed"
     else:
         raise AssertionError("PipelineError was not raised")
+
+
+def test_pipeline_creates_batches(tmp_path: Path) -> None:
+    """The pipeline should batch sanitized files before AI generation."""
+    repository = tmp_path / "repository"
+    repository.mkdir()
+
+    (repository / "a.py").write_text(
+        "def first():\n    return 1\n",
+        encoding="utf-8",
+    )
+    (repository / "b.py").write_text(
+        "def second():\n    return 2\n",
+        encoding="utf-8",
+    )
+
+    pipeline = CorePipeline(max_batch_bytes=10)
+
+    result = pipeline.run(str(repository), "test-repository")
+
+    assert len(result.batches) == 2
+    assert [batch.batch_id for batch in result.batches] == [1, 2]
+    assert [file.path for batch in result.batches for file in batch.files] == [
+        "a.py",
+        "b.py",
+    ]

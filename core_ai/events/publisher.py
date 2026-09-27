@@ -4,7 +4,6 @@ from collections.abc import Callable
 
 from .models import EventProgress, EventStage, EventType, JobEvent
 
-
 EventListener = Callable[[JobEvent], None]
 
 

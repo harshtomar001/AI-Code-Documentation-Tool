@@ -14,7 +14,9 @@ This module orchestrates the complete code documentation analysis workflow:
 
 from .ai.service import AIService
 from .ast_analyzer import ASTAnalyzer
+from .batching import Batcher
 from .documentation_checker import DocumentationChecker
+from .events import EventProgress, EventPublisher
 from .exceptions import PipelineError
 from .models.input import AIInput, RepositoryInfo
 from .models.pipelines import PipelineResult
@@ -27,21 +29,25 @@ from .stale_documentation import StaleDocumentationDetector
 
 
 class CorePipeline:
-    """Orchestrate the complete Core AI code-analysis pipeline.
+    """Orchestrate the complete Core AI code-analysis pipeline."""
 
-    The pipeline coordinates repository scanning, source-code analysis,
-    documentation checks, stale-documentation detection, security scanning,
-    sensitive-data redaction, and optional AI documentation generation.
-    """
-
-    def __init__(self, ai_service: AIService | None = None) -> None:
-        """Initialize the Core AI pipeline and its analysis components.
+    def __init__(
+        self,
+        ai_service: AIService | None = None,
+        event_publisher: EventPublisher | None = None,
+        job_id: str | None = None,
+        max_batch_bytes: int = 100 * 1024,
+    ) -> None:
+        """Initialize the Core AI pipeline.
 
         Args:
-            ai_service: Optional service responsible for generating
-                documentation from the prepared AI input.
+            ai_service: Optional service responsible for AI generation.
+            event_publisher: Optional publisher for live pipeline events.
+            job_id: Job identifier attached to emitted events.
         """
         self.ai_service = ai_service
+        self.event_publisher = event_publisher
+        self.job_id = job_id
 
         self.file_scanner = FileScanner()
         self.ast_analyzer = ASTAnalyzer()
@@ -49,58 +55,165 @@ class CorePipeline:
         self.stale_detector = StaleDocumentationDetector()
         self.security_scanner = SecurityScanner()
         self.redactor = Redactor()
+        self.batcher = Batcher(max_batch_bytes=max_batch_bytes)
+
+    def _emit(
+        self,
+        *,
+        stage: str,
+        event_type: str,
+        message: str,
+        current: int | None = None,
+        total: int | None = None,
+    ) -> None:
+        """Emit a live pipeline event when event publishing is enabled."""
+        if self.event_publisher is None or self.job_id is None:
+            return
+
+        progress = None
+
+        if current is not None and total is not None:
+            progress = EventProgress(
+                current=current,
+                total=total,
+            )
+
+        self.event_publisher.emit(
+            job_id=self.job_id,
+            stage=stage,  # type: ignore[arg-type]
+            type=event_type,  # type: ignore[arg-type]
+            message=message,
+            progress=progress,
+        )
 
     def run(
         self,
         repository_path: str,
         repository_name: str = "repository",
     ) -> PipelineResult:
-        """Run the complete Core AI analysis pipeline.
-
-        Args:
-            repository_path: Path to the repository that should be analyzed.
-            repository_name: Human-readable name used in the generated
-                repository metadata.
-
-        Returns:
-            A PipelineResult containing the repository analysis,
-            documentation findings, stale-documentation findings,
-            security results, sanitized files, AI input, and optional
-            AI-generated documentation.
-        """
-
+        """Run the complete Core AI analysis pipeline."""
         try:
             # M1: Scan repository
 
+            self._emit(
+                stage="scan",
+                event_type="started",
+                message="Scanning repository files",
+            )
+
             files = self.file_scanner.scan(repository_path)
+
+            self._emit(
+                stage="scan",
+                event_type="completed",
+                message=f"Scanned {len(files)} source files",
+                current=len(files),
+                total=len(files),
+            )
 
             # M2: Analyze source code
 
+            self._emit(
+                stage="server",
+                event_type="info",
+                message="Analyzing source code with AST",
+            )
+
             analysis = self.ast_analyzer.analyze(files)
 
-            # M3: Find undocumented public APIs
+            self._emit(
+                stage="server",
+                event_type="completed",
+                message="AST analysis completed",
+            )
+
+            # M3: Documentation check
+
+            self._emit(
+                stage="generation",
+                event_type="started",
+                message="Checking documentation completeness",
+            )
 
             documentation_check = self.documentation_checker.check(analysis)
 
-            # M4: Find stale documentation
+            self._emit(
+                stage="generation",
+                event_type="completed",
+                message="Documentation completeness check completed",
+            )
+
+            # M4: Stale documentation
+
+            self._emit(
+                stage="generation",
+                event_type="started",
+                message="Checking for stale documentation",
+            )
 
             stale_documentation = self.stale_detector.detect(
                 analysis,
                 files,
             )
 
-            # M5: Scan secrets / PII
+            self._emit(
+                stage="generation",
+                event_type="completed",
+                message="Stale documentation check completed",
+            )
+
+            # M5: Security
+
+            self._emit(
+                stage="security",
+                event_type="started",
+                message="Scanning for secrets and PII",
+            )
 
             security_matches = self.security_scanner.scan(files)
 
-            # M6: Redact sensitive information
+            self._emit(
+                stage="security",
+                event_type="completed",
+                message=(
+                    f"Security scan completed with {len(security_matches)} finding(s)"
+                ),
+            )
+
+            # M6: Redaction
+
+            self._emit(
+                stage="redaction",
+                event_type="started",
+                message="Applying security redaction",
+            )
 
             sanitized_files = self.redactor.redact(
                 files,
                 security_matches,
             )
 
-            # Build security result
+            self._emit(
+                stage="redaction",
+                event_type="completed",
+                message=(f"Redaction completed for {len(sanitized_files)} file(s)"),
+            )
+
+            self._emit(
+                stage="batching",
+                event_type="started",
+                message="Creating documentation batches",
+            )
+
+            batches = self.batcher.create_batches(sanitized_files)
+
+            self._emit(
+                stage="batching",
+                event_type="completed",
+                message=f"Created {len(batches)} documentation batches",
+                current=len(batches),
+                total=len(batches),
+            )
 
             security_findings = [
                 SecurityFinding(
@@ -117,8 +230,6 @@ class CorePipeline:
                 findings=security_findings,
             )
 
-            # Build AI input
-
             ai_input = AIInput(
                 repository=RepositoryInfo(
                     name=repository_name,
@@ -134,7 +245,19 @@ class CorePipeline:
             ai_result: AIResult | None = None
 
             if self.ai_service is not None:
+                self._emit(
+                    stage="generation",
+                    event_type="started",
+                    message="Generating documentation with AI",
+                )
+
                 ai_result = self.ai_service.generate_documentation(ai_input)
+
+                self._emit(
+                    stage="generation",
+                    event_type="completed",
+                    message="AI documentation generation completed",
+                )
 
             return PipelineResult(
                 files=files,
@@ -143,6 +266,7 @@ class CorePipeline:
                 stale_documentation=stale_documentation,
                 security=security_result,
                 sanitized_files=sanitized_files,
+                batches=batches,
                 ai_input=ai_input,
                 ai_result=ai_result,
             )

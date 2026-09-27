@@ -1,6 +1,6 @@
 """Tests for the Core AI live event system."""
 
-from datetime import timezone
+from datetime import UTC
 
 import pytest
 
@@ -17,7 +17,7 @@ def test_job_event_generates_id_and_timestamp() -> None:
     )
 
     assert event.event_id
-    assert event.timestamp.tzinfo == timezone.utc
+    assert event.timestamp.tzinfo == UTC
     assert event.progress is None
     assert event.metadata == {}
 

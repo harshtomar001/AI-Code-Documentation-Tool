@@ -1,6 +1,7 @@
 """Coordinate AI documentation generation and source-change creation."""
 
 from ..exceptions import AIProviderError
+from ..models.documentation import DocumentationResult
 from ..models.input import AIInput
 from ..models.results import AIResult
 from .change_generator import ChangeGenerator
@@ -35,6 +36,26 @@ class AIService:
         self.prompt_builder = prompt_builder
         self.output_parser = output_parser
         self.change_generator = change_generator
+
+    def generate_batch(
+        self,
+        data: AIInput,
+        files,
+    ) -> DocumentationResult:
+        """Generate documentation for one sanitized file batch."""
+        batch_data = data.model_copy(
+            update={"files": files},
+        )
+
+        context = self.context_builder.build(batch_data)
+        prompt = self.prompt_builder.build(context)
+
+        try:
+            response = self.provider.generate(prompt)
+        except AIProviderError:
+            raise
+
+        return self.output_parser.parse(response)
 
     def generate_documentation(self, data: AIInput) -> AIResult:
         """Generate documentation and corresponding source changes.

@@ -1,11 +1,10 @@
 """Models for live Core AI job events."""
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any, Literal
 from uuid import uuid4
 
 from pydantic import BaseModel, Field
-
 
 EventStage = Literal[
     "upload",
@@ -43,6 +42,6 @@ class JobEvent(BaseModel):
     stage: EventStage
     type: EventType
     message: str
-    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(UTC))
     progress: EventProgress | None = None
     metadata: dict[str, Any] = Field(default_factory=dict)
