@@ -1,0 +1,2 @@
+[console_scripts]
+core-ai-demo = core_ai.run_demo:main
