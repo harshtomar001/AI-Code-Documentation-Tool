@@ -5,43 +5,82 @@ function OAuthCallback() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    const params = new URLSearchParams(
-      window.location.hash.substring(1)
-    );
+    const handleOAuth = () => {
+      const hash = window.location.hash;
 
-    const token = params.get("access_token");
+      console.log("========== OAUTH CALLBACK ==========");
+      console.log("Current URL:", window.location.href);
+      console.log("Hash:", hash);
 
-    if (!token) {
-      navigate("/login", { replace: true });
-      return;
-    }
+      if (!hash || !hash.includes("access_token=")) {
+        console.error("OAuth access token not found");
 
-    localStorage.setItem(
-      "access_token",
-      token
-    );
+        navigate("/login", {
+          replace: true,
+        });
 
-    window.history.replaceState(
-      {},
-      document.title,
-      "/oauth/callback"
-    );
+        return;
+      }
 
-    navigate("/dashboard", {
-      replace: true,
-    });
+      const params = new URLSearchParams(
+        hash.substring(1)
+      );
+
+      const token = params.get("access_token");
+
+      console.log("OAuth token received:", !!token);
+
+      if (!token) {
+        navigate("/login", {
+          replace: true,
+        });
+
+        return;
+      }
+
+      // Clear any old token
+      localStorage.removeItem("access_token");
+      sessionStorage.removeItem("access_token");
+
+      // Save new OAuth token
+      localStorage.setItem(
+        "access_token",
+        token
+      );
+
+      // Remove token from address bar
+      window.history.replaceState(
+        {},
+        document.title,
+        "/oauth/callback"
+      );
+
+      console.log("Token saved successfully");
+      console.log("Redirecting to dashboard...");
+
+      // IMPORTANT:
+      // Use window.location instead of navigate
+      // so the dashboard starts with the saved token.
+      window.location.replace("/dashboard");
+    };
+
+    handleOAuth();
   }, [navigate]);
 
   return (
     <div
       style={{
-        minHeight: "100vh",
+        position: "fixed",
+        inset: 0,
         display: "flex",
-        justifyContent: "center",
         alignItems: "center",
+        justifyContent: "center",
+        background: "#08090b",
+        color: "#ffffff",
+        fontSize: "18px",
       }}
     >
-      <h2>Signing you in...</h2>
+      Signing you in...
     </div>
   );
 }
