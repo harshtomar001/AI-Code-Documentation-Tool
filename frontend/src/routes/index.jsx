@@ -1,3 +1,4 @@
+
 import { Routes, Route } from "react-router-dom";
 
 import Landing from "../Pages/Landing/landing";
@@ -12,20 +13,28 @@ function AppRoutes() {
   return (
     <Routes>
 
-      {/* PUBLIC */}
-      <Route path="/" element={<Landing />} />
+      <Route
+        path="/"
+        element={<Landing />}
+      />
 
-      <Route path="/login" element={<Login />} />
+      <Route
+        path="/login"
+        element={<Login />}
+      />
 
-      <Route path="/register" element={<Register />} />
+      <Route
+        path="/register"
+        element={<Register />}
+      />
       <Route path="/forgot-password" element={<Forgot />} />
-      {/* GOOGLE / MICROSOFT CALLBACK */}
+      {/* OAuth callback MUST be public */}
       <Route
         path="/oauth/callback"
         element={<OAuthCallback />}
       />
 
-      {/* PROTECTED */}
+      {/* Protected pages */}
       <Route element={<ProtectedRoute />}>
         <Route
           path="/dashboard"
