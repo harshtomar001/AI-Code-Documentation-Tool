@@ -1,0 +1,21 @@
+.arch { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); gap: 20px; align-items: start; }
+.arch__svg { padding: 6px 14px 4px; }
+.arch__svg svg { width: 100%; height: auto; display: block; }
+.arch__cap { padding: 6px 20px 18px; color: var(--muted); font-size: 13.5px; }
+.bx { fill: var(--panel-2); stroke: var(--line); stroke-width: 1.5; }
+.bx--key { stroke: var(--accent); stroke-width: 2; fill: var(--accent-soft); }
+.t1 { font: 600 13px var(--font); fill: var(--ink); }
+.t2 { font: 11.5px var(--font); fill: var(--muted); }
+.lb { font: 600 11px var(--font); fill: var(--muted); }
+.ar { fill: none; stroke: var(--faint); stroke-width: 1.6; stroke-dasharray: 5 4; animation: dash 1.2s linear infinite; }
+.ah { fill: var(--faint); }
+.recs { display: grid; gap: 12px; }
+.rec { border: 1px solid var(--line); border-radius: 12px; background: var(--panel); padding: 14px 18px; }
+.rec h3 { font-size: 15px; font-weight: 600; display: flex; gap: 10px; align-items: baseline; flex-wrap: wrap; margin-bottom: 4px; }
+.rec h3 small { font-size: 12px; font-weight: 600; color: var(--accent); background: var(--accent-soft); padding: 1px 9px; border-radius: 999px; }
+.rec p { color: var(--muted); font-size: 13.5px; max-width: 72ch; }
+.rec b { color: var(--ink); font-weight: 600; }
+.arch__note { margin-top: 20px; padding: 16px 20px; color: var(--muted); font-size: 13.5px; }
+.arch__note b { color: var(--ink); }
+@keyframes dash { to { stroke-dashoffset: -18; } }
+@media (max-width: 1100px) { .arch { grid-template-columns: minmax(0, 1fr); } }

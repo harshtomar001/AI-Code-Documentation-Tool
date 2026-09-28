@@ -1,5 +1,5 @@
 import secrets
-
+from urllib.parse import quote
 from fastapi import (
     APIRouter,
     Depends,
@@ -48,6 +48,7 @@ from services.auth.oauth_service import (
 
     get_github_authorization_url,
     github_login,
+    github_connect,
 )
 
 from utils.jwt import verify_access_token
@@ -424,6 +425,9 @@ async def github_login_start(
         url=get_github_authorization_url(state)
     )
 
+
+
+
 @router.get("/github/callback")
 async def github_callback(
     request: Request,
@@ -431,10 +435,39 @@ async def github_callback(
     state: str,
     db: AsyncSession = Depends(get_db),
 ):
-    saved_state = request.session.pop(
+    # ---------------------------------------------------------
+    # Check which GitHub flow started
+    # ---------------------------------------------------------
+
+    connect_user_id = request.session.pop(
+        "github_connect_user_id",
+        None,
+    )
+
+    # Login flow uses github_oauth_state
+    login_state = request.session.pop(
         "github_oauth_state",
         None,
     )
+
+    # Connect flow uses github_connect_state
+    connect_state = request.session.pop(
+        "github_connect_state",
+        None,
+    )
+
+    saved_state = login_state or connect_state
+
+    print("========== GITHUB CALLBACK ==========")
+    print("Received state:", state)
+    print("Login state:", login_state)
+    print("Connect state:", connect_state)
+    print("Connect user ID:", connect_user_id)
+    print("=====================================")
+
+    # ---------------------------------------------------------
+    # Verify OAuth state
+    # ---------------------------------------------------------
 
     if (
         not saved_state
@@ -449,6 +482,46 @@ async def github_callback(
         )
 
     try:
+        # -----------------------------------------------------
+        # CONNECT GITHUB TO EXISTING LOGGED-IN USER
+        # -----------------------------------------------------
+
+        if connect_user_id:
+            result = await db.execute(
+                select(User).where(
+                    User.id == int(connect_user_id)
+                )
+            )
+
+            user = result.scalar_one_or_none()
+
+            if not user:
+                raise ValueError(
+                    "User account not found"
+                )
+
+            if not user.is_active:
+                raise ValueError(
+                    "User account is inactive"
+                )
+
+            await github_connect(
+                db,
+                user,
+                code,
+            )
+
+            return RedirectResponse(
+                url=(
+                    f"{settings.FRONTEND_URL}"
+                    f"/dashboard?github=connected"
+                )
+            )
+
+        # -----------------------------------------------------
+        # NORMAL GITHUB LOGIN
+        # -----------------------------------------------------
+
         user, access_token = await github_login(
             db,
             code,
@@ -463,7 +536,12 @@ async def github_callback(
         )
 
     except ValueError as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e),
+        print("========== GITHUB CONNECT ERROR ==========")
+        print("ERROR:", str(e))
+        print("REDIRECTING TO DASHBOARD")
+        print("==========================================")
+
+        return RedirectResponse(
+            url=f"{settings.FRONTEND_URL}/dashboard?github_error={quote(str(e))}",
+            status_code=302,
         )

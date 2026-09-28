@@ -1,0 +1,6 @@
+.done { height: 100%; display: grid; place-content: center; justify-items: center; text-align: center; gap: 6px; padding: 20px; }
+.done__ck { width: 64px; height: 64px; border-radius: 50%; background: var(--green); color: #06170f; display: grid; place-items: center; animation: done-pop 0.7s cubic-bezier(0.2, 1.6, 0.4, 1); }
+.done h3 { margin-top: 10px; font-size: 22px; font-weight: 600; }
+.done p { color: var(--muted); }
+.done__btns { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; margin-top: 14px; }
+@keyframes done-pop { 0% { transform: scale(0.6); } 60% { transform: scale(1.12); } 100% { transform: scale(1); } }

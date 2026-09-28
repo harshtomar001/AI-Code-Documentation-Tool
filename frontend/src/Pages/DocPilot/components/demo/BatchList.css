@@ -1,0 +1,24 @@
+.batches__top { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; }
+.batches__tabs { display: flex; gap: 6px; flex-wrap: wrap; }
+.tab { border: 1px solid var(--line); background: var(--panel); color: var(--muted); border-radius: 999px; padding: 4px 12px; font-size: 12.5px; font-weight: 500; }
+.tab b { color: var(--ink); font-weight: 600; margin-left: 4px; font-variant-numeric: tabular-nums; }
+.tab[aria-pressed='true'] { border-color: var(--accent); background: var(--accent-soft); color: var(--ink); }
+.batches__scroll { max-height: 360px; overflow: auto; border: 1px solid var(--line); border-radius: 10px; background: var(--panel); }
+.batch { display: grid; grid-template-columns: 78px minmax(0, 1fr) auto; gap: 12px; align-items: center; padding: 9px 14px; border-bottom: 1px solid var(--line-soft); border-left: 3px solid transparent; font-size: 13.5px; }
+.batch:last-child { border-bottom: 0; }
+.batch--ready, .batch--partial { border-left-color: var(--accent); background: var(--accent-soft); }
+.batch__id { font-weight: 600; font-variant-numeric: tabular-nums; }
+.batch__info { min-width: 0; display: flex; align-items: center; gap: 10px; color: var(--muted); }
+.batch__info > span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pill { flex: none; border-radius: 999px; padding: 2px 10px; font-size: 12px; font-weight: 600; background: var(--raised); color: var(--muted); }
+.pill--generating { background: var(--amber-soft); color: var(--amber); }
+.pill--ready, .pill--partial { background: var(--accent); color: var(--accent-ink); }
+.pill--done { background: var(--green-soft); color: var(--green); }
+.batch__prog { width: 70px; height: 4px; border-radius: 2px; background: var(--line); overflow: hidden; flex: none; }
+.batch__prog b { display: block; height: 100%; background: var(--amber); }
+.batches__empty { padding: 24px; text-align: center; color: var(--muted); }
+
+@media (max-width: 640px) {
+  .batch { grid-template-columns: 62px minmax(0, 1fr) auto; padding: 9px 10px; gap: 8px; }
+  .batch__prog { display: none; }
+}
