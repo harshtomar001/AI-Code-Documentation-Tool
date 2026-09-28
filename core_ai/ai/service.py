@@ -57,6 +57,59 @@ class AIService:
 
         return self.output_parser.parse(response)
 
+    def generate_batch_result(
+        self,
+        data: AIInput,
+        files,
+    ) -> AIResult:
+        """Generate documentation and source changes for one file batch."""
+        batch_paths = {file.path for file in files}
+
+        batch_analysis = data.analysis.model_copy(
+            update={
+                "files": [
+                    analysis_file
+                    for analysis_file in data.analysis.files
+                    if analysis_file.path in batch_paths
+                ]
+            }
+        )
+
+        batch_repository = data.repository.model_copy(
+            update={
+                "files": [path for path in data.repository.files if path in batch_paths]
+            }
+        )
+
+        batch_data = data.model_copy(
+            update={
+                "repository": batch_repository,
+                "analysis": batch_analysis,
+                "files": files,
+            }
+        )
+
+        context = self.context_builder.build(batch_data)
+        prompt = self.prompt_builder.build(context)
+
+        try:
+            response = self.provider.generate(prompt)
+        except AIProviderError:
+            raise
+
+        documentation = self.output_parser.parse(response)
+
+        changes = self.change_generator.generate(
+            documentation,
+            batch_analysis,
+            files,
+        )
+
+        return AIResult(
+            documentation=documentation,
+            changes=changes,
+        )
+
     def generate_documentation(self, data: AIInput) -> AIResult:
         """Generate documentation and corresponding source changes.
 

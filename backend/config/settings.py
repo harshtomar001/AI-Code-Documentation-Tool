@@ -25,12 +25,10 @@ class Settings(BaseSettings):
     SMTP_PASSWORD: str = ""
     EMAIL_FROM: str = ""
     MICROSOFT_MAIL_REDIRECT_URI: str = (
-    "http://localhost:8000/api/email/microsoft/callback"
+        "http://localhost:8000/api/email/microsoft/callback"
     )
 
-    MICROSOFT_MAIL_SCOPES: str = (
-        "Mail.Send"
-    )
+    MICROSOFT_MAIL_SCOPES: str = "Mail.Send"
 
     MICROSOFT_REFRESH_TOKEN: str = ""
     model_config = SettingsConfigDict(
@@ -41,4 +39,3 @@ class Settings(BaseSettings):
 
 
 settings = Settings()
-

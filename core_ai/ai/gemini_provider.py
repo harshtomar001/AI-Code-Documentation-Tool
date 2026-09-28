@@ -3,6 +3,7 @@
 import os
 
 from google import genai
+from google.genai import types
 from google.genai.errors import ServerError
 
 from ..exceptions import AIProviderError
@@ -24,7 +25,23 @@ class GeminiProvider(AIProvider):
         if not api_key:
             raise ValueError("GEMINI_API_KEY is not configured")
 
-        self.client = genai.Client(api_key=api_key)
+        self.model = os.getenv(
+            "GEMINI_MODEL",
+            "gemini-3.5-flash-lite",
+        )
+
+        self.client = genai.Client(
+            api_key=api_key,
+            http_options=types.HttpOptions(
+                retry_options=types.HttpRetryOptions(
+                    attempts=5,
+                    initial_delay=1.0,
+                    max_delay=8.0,
+                    jitter=0.25,
+                    http_status_codes=[408, 429, 500, 502, 503, 504],
+                ),
+            ),
+        )
 
     def generate(self, prompt: str) -> str:
         """Generate documentation content using Gemini.
@@ -42,7 +59,7 @@ class GeminiProvider(AIProvider):
 
         def operation() -> str:
             response = self.client.models.generate_content(
-                model="gemini-3.5-flash-lite",
+                model=self.model,
                 contents=prompt,
             )
 
@@ -62,5 +79,6 @@ class GeminiProvider(AIProvider):
 
         except Exception as exc:
             raise AIProviderError(
-                "Gemini provider failed to generate a response"
+                f"Gemini provider failed to generate a response "
+                f"using model '{self.model}'"
             ) from exc

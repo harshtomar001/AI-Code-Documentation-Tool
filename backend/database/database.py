@@ -5,7 +5,7 @@ from sqlalchemy.ext.asyncio import (
 )
 from sqlalchemy.orm import DeclarativeBase
 
-from config.settings import settings
+from backend.config.settings import settings
 
 
 # Database engine
@@ -35,4 +35,3 @@ async def get_db():
             yield session
         finally:
             await session.close()
-

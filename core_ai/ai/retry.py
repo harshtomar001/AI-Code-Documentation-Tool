@@ -1,5 +1,6 @@
 """Retry utilities for transient AI provider failures."""
 
+import random
 import time
 from collections.abc import Callable
 from typing import TypeVar
@@ -12,14 +13,16 @@ def retry_with_backoff(
     *,
     retries: int = 2,
     delay: float = 1.0,
+    jitter: float = 0.25,
     retry_if: tuple[type[Exception], ...] = (Exception,),
 ) -> T:
-    """Retry an operation using exponential backoff.
+    """Retry an operation using exponential backoff with jitter.
 
     Args:
         operation: Callable operation that may temporarily fail.
         retries: Number of retries after the initial attempt.
         delay: Initial delay in seconds.
+        jitter: Maximum random jitter added to each retry delay.
         retry_if: Exception types that should trigger a retry.
 
     Returns:
@@ -35,6 +38,8 @@ def retry_with_backoff(
             if attempt == retries:
                 raise
 
-            time.sleep(delay * (2**attempt))
+            backoff = delay * (2**attempt)
+            sleep_time = backoff + random.uniform(0, jitter)
+            time.sleep(sleep_time)
 
     raise RuntimeError("Retry operation failed unexpectedly")

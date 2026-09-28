@@ -177,4 +177,3 @@ def downgrade() -> None:
         existing_type=sa.VARCHAR(length=20),
         nullable=False,
     )
-

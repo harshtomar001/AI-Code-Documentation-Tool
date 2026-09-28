@@ -34,6 +34,7 @@ class AuthResponse(BaseModel):
     access_token: str
     token_type: str = "bearer"
 
+
 class ForgotPasswordRequest(BaseModel):
     email: EmailStr
 
@@ -51,6 +52,6 @@ class ResetPasswordRequest(BaseModel):
 
         return value
 
+
 class ResendResetOTPRequest(BaseModel):
     email: EmailStr
-

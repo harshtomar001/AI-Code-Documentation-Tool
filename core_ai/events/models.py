@@ -13,6 +13,7 @@ EventStage = Literal[
     "security",
     "redaction",
     "batching",
+    "batch",
     "generation",
     "job",
 ]

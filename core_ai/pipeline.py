@@ -12,6 +12,8 @@ This module orchestrates the complete code documentation analysis workflow:
 8. Optional AI documentation generation
 """
 
+from collections.abc import Callable
+
 from .ai.service import AIService
 from .ast_analyzer import ASTAnalyzer
 from .batching import Batcher
@@ -37,6 +39,7 @@ class CorePipeline:
         event_publisher: EventPublisher | None = None,
         job_id: str | None = None,
         max_batch_bytes: int = 100 * 1024,
+        batch_result_handler: Callable[[int, int, AIResult], None] | None = None,
     ) -> None:
         """Initialize the Core AI pipeline.
 
@@ -56,6 +59,8 @@ class CorePipeline:
         self.security_scanner = SecurityScanner()
         self.redactor = Redactor()
         self.batcher = Batcher(max_batch_bytes=max_batch_bytes)
+
+        self.batch_result_handler = batch_result_handler
 
     def _emit(
         self,
@@ -244,19 +249,68 @@ class CorePipeline:
 
             ai_result: AIResult | None = None
 
-            if self.ai_service is not None:
+            if self.ai_service is not None and batches:
                 self._emit(
                     stage="generation",
                     event_type="started",
                     message="Generating documentation with AI",
                 )
 
-                ai_result = self.ai_service.generate_documentation(ai_input)
+                batch_results: list[AIResult] = []
+
+                for batch in batches:
+                    batch_result = self.ai_service.generate_batch_result(
+                        ai_input,
+                        batch.files,
+                    )
+
+                    batch_results.append(batch_result)
+
+                    if self.batch_result_handler is not None:
+                        self.batch_result_handler(
+                            batch.batch_id,
+                            len(batches),
+                            batch_result,
+                        )
+
+                    self._emit(
+                        stage="generation",
+                        event_type="progress",
+                        message=(
+                            f"Generated documentation for "
+                            f"batch {batch.batch_id}/{len(batches)}"
+                        ),
+                        current=batch.batch_id,
+                        total=len(batches),
+                    )
+
+                # Merge individual batch results into the existing
+                # PipelineResult-compatible AIResult.
+                documentation_files = []
+                changes = []
+                readme = None
+
+                for batch_result in batch_results:
+                    documentation_files.extend(batch_result.documentation.files)
+                    changes.extend(batch_result.changes)
+
+                    if batch_result.documentation.readme:
+                        readme = batch_result.documentation.readme
+
+                ai_result = AIResult(
+                    documentation=type(batch_results[0].documentation)(
+                        files=documentation_files,
+                        readme=readme,
+                    ),
+                    changes=changes,
+                )
 
                 self._emit(
                     stage="generation",
                     event_type="completed",
                     message="AI documentation generation completed",
+                    current=len(batches),
+                    total=len(batches),
                 )
 
             return PipelineResult(

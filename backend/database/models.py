@@ -10,12 +10,13 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import Mapped, mapped_column
 
-from database.database import Base
+from backend.database.database import Base
 
 
 # =========================================================
 # USER
 # =========================================================
+
 
 class User(Base):
     __tablename__ = "users"
@@ -72,6 +73,7 @@ class User(Base):
 # USER IDENTITY
 # =========================================================
 
+
 class UserIdentity(Base):
     __tablename__ = "user_identities"
 
@@ -123,6 +125,7 @@ class UserIdentity(Base):
 # OTP VERIFICATION
 # =========================================================
 
+
 class OTPVerification(Base):
     __tablename__ = "otp_verifications"
 
@@ -171,4 +174,3 @@ class OTPVerification(Base):
         server_default=func.now(),
         nullable=False,
     )
-

@@ -51,4 +51,3 @@ def downgrade() -> None:
         "otp_verifications",
         type_="foreignkey",
     )
-

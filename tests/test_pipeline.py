@@ -125,3 +125,110 @@ def test_pipeline_creates_batches(tmp_path: Path) -> None:
         "a.py",
         "b.py",
     ]
+
+
+def test_pipeline_processes_each_batch_independently(tmp_path: Path) -> None:
+    """The pipeline should generate and report one result per batch."""
+    repository = tmp_path / "repository"
+    repository.mkdir()
+
+    (repository / "a.py").write_text(
+        "def first():\n    return 1\n",
+        encoding="utf-8",
+    )
+    (repository / "b.py").write_text(
+        "def second():\n    return 2\n",
+        encoding="utf-8",
+    )
+
+    class BatchAwareProvider:
+        def generate(self, prompt: str) -> str:
+            if "a.py" in prompt:
+                return """
+{
+    "files": [
+        {
+            "path": "a.py",
+            "changes": [
+                {
+                    "type": "docstring",
+                    "target": "first",
+                    "content": "Document first."
+                }
+            ]
+        }
+    ],
+    "readme": null
+}
+"""
+
+            return """
+{
+    "files": [
+        {
+            "path": "b.py",
+            "changes": [
+                {
+                    "type": "docstring",
+                    "target": "second",
+                    "content": "Document second."
+                }
+            ]
+        }
+    ],
+    "readme": null
+}
+"""
+
+    ai_service = AIService(
+        provider=BatchAwareProvider(),
+        context_builder=ContextBuilder(),
+        prompt_builder=DocumentationPromptBuilder(),
+        output_parser=StructuredOutputParser(),
+        change_generator=ChangeGenerator(),
+    )
+
+    completed_batches = []
+
+    def handle_batch(
+        batch_id: int,
+        total_batches: int,
+        result,
+    ) -> None:
+        completed_batches.append(
+            (
+                batch_id,
+                total_batches,
+                [file.path for file in result.documentation.files],
+            )
+        )
+
+    pipeline = CorePipeline(
+        ai_service=ai_service,
+        max_batch_bytes=10,
+        batch_result_handler=handle_batch,
+    )
+
+    result = pipeline.run(
+        str(repository),
+        "test-repository",
+    )
+
+    assert len(completed_batches) == 2
+
+    assert completed_batches == [
+        (1, 2, ["a.py"]),
+        (2, 2, ["b.py"]),
+    ]
+
+    assert result.ai_result is not None
+
+    assert [file.path for file in result.ai_result.documentation.files] == [
+        "a.py",
+        "b.py",
+    ]
+
+    assert [change.file for change in result.ai_result.changes] == [
+        "a.py",
+        "b.py",
+    ]

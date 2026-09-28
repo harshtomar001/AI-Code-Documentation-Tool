@@ -7,16 +7,16 @@ from fastapi import (
     Request,
     status,
 )
-from config.settings import settings
+from backend.config.settings import settings
 from fastapi.responses import RedirectResponse
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from database.database import get_db
-from database.models import User, UserIdentity
+from backend.database.database import get_db
+from backend.database.models import User, UserIdentity
 
-from schemas.auth.auth import (
+from backend.schemas.auth.auth import (
     RegisterRequest,
     LoginRequest,
     AuthResponse,
@@ -27,7 +27,7 @@ from schemas.auth.auth import (
     ResendResetOTPRequest,
 )
 
-from services.auth.auth_service import (
+from backend.services.auth.auth_service import (
     register_user,
     verify_email,
     resend_otp,
@@ -37,7 +37,7 @@ from services.auth.auth_service import (
     reset_password,
 )
 
-from services.auth.oauth_service import (
+from backend.services.auth.oauth_service import (
     generate_oauth_state,
     get_google_authorization_url,
     google_login,
@@ -45,7 +45,7 @@ from services.auth.oauth_service import (
     microsoft_login,
 )
 
-from utils.jwt import verify_access_token
+from backend.utils.jwt import verify_access_token
 
 
 router = APIRouter(
@@ -59,6 +59,7 @@ security = HTTPBearer()
 # =========================================================
 # REGISTER
 # =========================================================
+
 
 @router.post(
     "/register",
@@ -80,6 +81,7 @@ async def register(
 # =========================================================
 # VERIFY EMAIL
 # =========================================================
+
 
 @router.post(
     "/verify-email",
@@ -113,6 +115,7 @@ async def verify_email_endpoint(
 # RESEND EMAIL OTP
 # =========================================================
 
+
 @router.post("/resend-otp")
 async def resend_otp_route(
     data: ResendOTPRequest,
@@ -130,6 +133,7 @@ async def resend_otp_route(
 # =========================================================
 # LOGIN
 # =========================================================
+
 
 @router.post(
     "/login",
@@ -162,6 +166,7 @@ async def login(
 # GOOGLE LOGIN
 # =========================================================
 
+
 @router.get("/google/login")
 async def google_login_start(
     request: Request,
@@ -170,9 +175,7 @@ async def google_login_start(
 
     request.session["google_oauth_state"] = state
 
-    return RedirectResponse(
-        url=get_google_authorization_url(state)
-    )
+    return RedirectResponse(url=get_google_authorization_url(state))
 
 
 @router.get("/google/callback")
@@ -187,10 +190,7 @@ async def google_callback(
         None,
     )
 
-    if (
-        not saved_state
-        or not secrets.compare_digest(saved_state, state)
-    ):
+    if not saved_state or not secrets.compare_digest(saved_state, state):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Invalid OAuth state",
@@ -219,6 +219,7 @@ async def google_callback(
 # MICROSOFT LOGIN
 # =========================================================
 
+
 @router.get("/microsoft/login")
 async def microsoft_login_start(
     request: Request,
@@ -227,9 +228,7 @@ async def microsoft_login_start(
 
     request.session["microsoft_oauth_state"] = state
 
-    return RedirectResponse(
-        url=get_microsoft_authorization_url(state)
-    )
+    return RedirectResponse(url=get_microsoft_authorization_url(state))
 
 
 @router.get("/microsoft/callback")
@@ -244,10 +243,7 @@ async def microsoft_callback(
         None,
     )
 
-    if (
-        not saved_state
-        or not secrets.compare_digest(saved_state, state)
-    ):
+    if not saved_state or not secrets.compare_digest(saved_state, state):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Invalid OAuth state",
@@ -276,6 +272,7 @@ async def microsoft_callback(
 # CURRENT USER
 # =========================================================
 
+
 async def get_current_user(
     credentials: HTTPAuthorizationCredentials = Depends(security),
     db: AsyncSession = Depends(get_db),
@@ -297,9 +294,7 @@ async def get_current_user(
             detail="Invalid token",
         )
 
-    result = await db.execute(
-        select(User).where(User.id == user_id)
-    )
+    result = await db.execute(select(User).where(User.id == user_id))
     user = result.scalar_one_or_none()
 
     if not user:
@@ -321,15 +316,14 @@ async def get_current_user(
 # MY PROFILE
 # =========================================================
 
+
 @router.get("/me")
 async def get_me(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     result = await db.execute(
-        select(UserIdentity).where(
-            UserIdentity.user_id == current_user.id
-        )
+        select(UserIdentity).where(UserIdentity.user_id == current_user.id)
     )
     identities = result.scalars().all()
 
@@ -353,6 +347,7 @@ async def get_me(
 # FORGOT PASSWORD
 # =========================================================
 
+
 @router.post("/forgot-password")
 async def forgot_password_route(
     data: ForgotPasswordRequest,
@@ -370,6 +365,7 @@ async def forgot_password_route(
 # =========================================================
 # RESEND RESET OTP
 # =========================================================
+
 
 @router.post("/resend-reset-otp")
 async def resend_reset_otp_route(
@@ -389,6 +385,7 @@ async def resend_reset_otp_route(
 # RESET PASSWORD
 # =========================================================
 
+
 @router.post("/reset-password")
 async def reset_password_route(
     data: ResetPasswordRequest,
@@ -401,7 +398,3 @@ async def reset_password_route(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(e),
         )
-
-
-
-
