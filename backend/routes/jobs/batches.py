@@ -2,19 +2,17 @@
 
 from fastapi import APIRouter, HTTPException, status
 
-from backend.services.jobs import BatchResult, BatchResultStore
+from backend.services.jobs import BatchResult
 
 from .jobs import job_manager
 
 router = APIRouter(prefix="/api/jobs", tags=["jobs"])
 
-batch_result_store = BatchResultStore()
-
 
 @router.get("/{job_id}/batches")
 async def get_job_batches(job_id: str) -> list[BatchResult]:
     """Return all completed batch results for a job."""
-    return batch_result_store.get_all(job_id)
+    return job_manager.get_batch_results(job_id)
 
 
 @router.get("/{job_id}/batches/{batch_id}")
