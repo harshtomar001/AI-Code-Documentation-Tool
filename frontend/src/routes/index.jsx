@@ -6,9 +6,10 @@ import Login from "../Pages/Login/login";
 import Register from "../Pages/Register/Register";
 import Dashboard from "../Pages/Dashboard/dashboard";
 import OAuthCallback from "../Pages/OAuthCallback/OAuthCallback";
+import Repository from "../Pages/Repository/Repository";
 import Forgot from "../Pages/Login/Forgot";
 import ProtectedRoute from "./ProtectedRoute";
-
+import DocPilot from "../Pages/DocPilot/DocPilot";
 function AppRoutes() {
   return (
     <Routes>
@@ -40,6 +41,11 @@ function AppRoutes() {
           path="/dashboard"
           element={<Dashboard />}
         />
+        <Route
+          path="/repository/:owner/:repo"
+          element={<Repository />}
+        />
+        <Route path="/docpilot" element={<DocPilot />} />
       </Route>
 
     </Routes>
