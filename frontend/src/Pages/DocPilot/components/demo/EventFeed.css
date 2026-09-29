@@ -1,0 +1,14 @@
+.feed__live { display: inline-flex; align-items: center; gap: 8px; color: var(--muted); font-size: 13px; }
+.feed__live i { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); animation: pulse 1.6s ease-in-out infinite; }
+.feed__list { height: 330px; overflow: auto; padding: 0 0 10px; }
+.ev { display: grid; grid-template-columns: 58px 72px minmax(0, 1fr); gap: 10px; align-items: baseline; padding: 6px 20px; font-size: 13.5px; line-height: 1.45; animation: ev-in 0.35s ease-out; }
+.ev time { color: var(--muted); font-size: 13px; font-variant-numeric: tabular-nums; }
+.ev b { font-weight: 600; color: var(--muted); }
+.ev span { min-width: 0; overflow-wrap: anywhere; }
+.ev--ready b, .ev--gen b { color: var(--accent); }
+.ev--secret b, .ev--secret span { color: var(--amber); }
+.ev--secure b, .ev--commit b, .ev--done b { color: var(--green); }
+.feed__empty { padding: 30px 20px; color: var(--muted); text-align: center; }
+@keyframes ev-in { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: none; } }
+@keyframes pulse { 50% { opacity: 0.35; } }
+@media (max-width: 640px) { .ev { grid-template-columns: 50px 56px minmax(0, 1fr); padding: 6px 12px; } }

@@ -1,0 +1,1557 @@
+/* =========================================================
+   DOCUAI REGISTER PAGE
+   FINAL PREMIUM DARK UI
+   - Full viewport page
+   - No page-level scrolling
+   - Only right-side form area scrolls when required
+   - Scrollbars hidden
+========================================================= */
+
+html:has(.register-page),
+body:has(.register-page) {
+    overflow: hidden;
+    overscroll-behavior: none;
+}
+
+.register-page {
+    position: fixed;
+    inset: 0;
+
+    width: 100vw;
+    height: 100dvh;
+    min-height: 100dvh;
+
+    display: flex;
+    flex-direction: column;
+
+    overflow: hidden;
+    overscroll-behavior: none;
+
+    background:
+        radial-gradient(
+            circle at 8% 88%,
+            rgba(239, 99, 72, 0.075),
+            transparent 30%
+        ),
+        radial-gradient(
+            circle at 86% 4%,
+            rgba(255, 255, 255, 0.025),
+            transparent 24%
+        ),
+        #08090b;
+
+    color: #f5f5f4;
+    box-sizing: border-box;
+}
+
+.register-page *,
+.register-page *::before,
+.register-page *::after {
+    box-sizing: border-box;
+}
+
+/* =========================================================
+   BACKGROUND GLOWS
+========================================================= */
+
+.register-glow {
+    position: absolute;
+    border-radius: 50%;
+    pointer-events: none;
+    z-index: 0;
+    filter: blur(90px);
+}
+
+.register-glow-one {
+    width: 420px;
+    height: 420px;
+    left: -250px;
+    bottom: -270px;
+    background: rgba(239, 99, 72, 0.055);
+}
+
+.register-glow-two {
+    width: 330px;
+    height: 330px;
+    right: 8%;
+    top: -250px;
+    background: rgba(255, 255, 255, 0.018);
+}
+
+/* =========================================================
+   NAVBAR
+========================================================= */
+
+.register-navbar {
+    flex: 0 0 78px;
+
+    width: 100%;
+    height: 78px;
+
+    padding: 0 clamp(28px, 7.2vw, 120px);
+
+    display: flex;
+    align-items: center;
+
+    position: relative;
+    z-index: 10;
+
+    border-bottom: 1px solid rgba(255, 255, 255, 0.035);
+}
+
+/* Brand */
+
+.register-brand {
+    display: inline-flex;
+    align-items: center;
+    gap: 11px;
+
+    color: #f5f5f4;
+    text-decoration: none;
+
+    font-size: 24px;
+    font-weight: 650;
+
+    letter-spacing: -1px;
+}
+
+.register-brand-icon {
+    width: 29px;
+    height: 34px;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    color: #f5f5f4;
+    font-size: 19px;
+}
+
+.register-brand > span:last-child span {
+    color: #ef6348;
+}
+
+/* Nav links */
+
+.register-nav-links {
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+
+    display: flex;
+    align-items: center;
+    gap: 42px;
+}
+
+.register-nav-links a {
+    color: rgba(229, 231, 235, 0.60);
+    text-decoration: none;
+
+    font-size: 12px;
+    font-weight: 400;
+
+    transition:
+        color 0.2s ease,
+        opacity 0.2s ease;
+}
+
+.register-nav-links a:hover {
+    color: #f5f5f4;
+}
+
+/* Theme */
+
+.register-theme-button {
+    width: 42px;
+    height: 42px;
+
+    margin-left: auto;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    border: 1px solid rgba(255, 255, 255, 0.045);
+    border-radius: 50%;
+
+    background: rgba(255, 255, 255, 0.065);
+
+    color: #ffffff;
+
+    cursor: pointer;
+
+    font-size: 17px;
+
+    transition:
+        background 0.2s ease,
+        transform 0.2s ease;
+}
+
+.register-theme-button:hover {
+    background: rgba(255, 255, 255, 0.105);
+    transform: translateY(-1px);
+}
+
+/* =========================================================
+   MAIN LAYOUT
+========================================================= */
+
+.register-content {
+    flex: 1;
+
+    min-width: 0;
+    min-height: 0;
+
+    width: 100%;
+    height: calc(100dvh - 78px);
+
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(470px, 0.92fr);
+
+    position: relative;
+    z-index: 2;
+
+    overflow: hidden;
+}
+
+/* =========================================================
+   LEFT INTRO
+========================================================= */
+
+.register-intro {
+    position: relative;
+
+    min-width: 0;
+    min-height: 0;
+
+    display: flex;
+    align-items: center;
+
+    padding:
+        48px
+        clamp(38px, 7.2vw, 120px)
+        60px;
+
+    overflow: hidden;
+
+    border-right: 1px solid rgba(255, 255, 255, 0.045);
+}
+
+.register-intro-copy {
+    position: relative;
+    z-index: 2;
+
+    width: 100%;
+    max-width: 720px;
+
+    margin-top: -4px;
+}
+
+/* Eyebrow */
+
+.register-eyebrow {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+
+    margin-bottom: 27px;
+
+    color: rgba(229, 231, 235, 0.43);
+
+    font-size: 10px;
+    font-weight: 500;
+
+    letter-spacing: 1.55px;
+}
+
+.register-eyebrow span {
+    width: 24px;
+    height: 2px;
+
+    flex-shrink: 0;
+
+    display: block;
+
+    background: #ef6348;
+}
+
+/* Main heading */
+
+.register-intro h1 {
+    width: 100%;
+    max-width: 760px;
+
+    margin: 0;
+
+    color: #f5f5f4;
+
+    font-size: clamp(48px, 5.1vw, 76px);
+    line-height: 0.98;
+
+    font-weight: 650;
+
+    letter-spacing: -3.7px;
+}
+
+.register-intro h1 span {
+    color: rgba(229, 231, 235, 0.57);
+}
+
+/* Description */
+
+.register-intro-description {
+    max-width: 540px;
+
+    margin: 26px 0 0;
+
+    color: rgba(229, 231, 235, 0.56);
+
+    font-size: 18px;
+    line-height: 1.55;
+
+    letter-spacing: -0.15px;
+}
+
+/* =========================================================
+   BENEFITS
+========================================================= */
+
+.register-benefits {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+
+    margin-top: 38px;
+}
+
+.register-benefit {
+    display: flex;
+    align-items: center;
+    gap: 22px;
+}
+
+.benefit-icon {
+    width: 64px;
+    height: 64px;
+
+    flex: 0 0 64px;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 10px;
+
+    background: rgba(255, 255, 255, 0.045);
+
+    color: #f5f5f4;
+
+    font-size: 17px;
+
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.025),
+        0 10px 28px rgba(0, 0, 0, 0.18);
+}
+
+.register-benefit h3 {
+    margin: 0 0 5px;
+
+    color: #f5f5f4;
+
+    font-size: 15px;
+    font-weight: 500;
+}
+
+.register-benefit p {
+    margin: 0;
+
+    color: rgba(229, 231, 235, 0.46);
+
+    font-size: 13px;
+    line-height: 1.45;
+}
+
+/* =========================================================
+   DECORATIVE ORB
+========================================================= */
+
+.register-orb {
+    position: absolute;
+
+    width: 640px;
+    height: 640px;
+
+    left: -330px;
+    bottom: -535px;
+
+    border-radius: 50%;
+
+    background:
+        radial-gradient(
+            circle at 69% 15%,
+            rgba(239, 99, 72, 0.16),
+            transparent 1.3%
+        ),
+        radial-gradient(
+            circle,
+            #121315 0%,
+            #0a0b0d 66%,
+            #08090b 100%
+        );
+
+    border: 1px solid rgba(255, 255, 255, 0.055);
+
+    box-shadow:
+        0 0 100px rgba(0, 0, 0, 0.78);
+
+    transform: rotate(-20deg);
+
+    pointer-events: none;
+}
+
+.register-orb::after {
+    content: "";
+
+    position: absolute;
+    inset: 0;
+
+    width: 100%;
+    height: 100%;
+
+    border-radius: 50%;
+
+    border-top: 1px solid rgba(239, 99, 72, 0.58);
+
+    transform: rotate(-12deg);
+}
+
+/* =========================================================
+   RIGHT FORM AREA
+   THIS IS THE ONLY SCROLL CONTAINER
+========================================================= */
+
+.register-form-area {
+    min-width: 0;
+    min-height: 0;
+
+    width: 100%;
+    height: 100%;
+
+    display: flex;
+    justify-content: center;
+    align-items: center;
+
+    padding:
+        32px
+        clamp(24px, 5.2vw, 86px);
+
+    overflow-x: hidden;
+    overflow-y: auto;
+
+    overscroll-behavior: contain;
+
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+
+    border-left: 0;
+}
+
+.register-form-area::-webkit-scrollbar {
+    width: 0;
+    height: 0;
+    display: none;
+}
+
+/* =========================================================
+   REGISTER CARD
+========================================================= */
+
+.register-form-area .register-card {
+    width: min(100%, 560px);
+
+    flex: 0 0 auto;
+
+    margin: auto 0;
+
+    padding: 34px 38px 29px;
+
+    background:
+        linear-gradient(
+            180deg,
+            rgba(18, 20, 22, 0.95),
+            rgba(10, 11, 13, 0.96)
+        );
+
+    border: 1px solid rgba(255, 255, 255, 0.11);
+
+    border-radius: 14px;
+
+    box-shadow:
+        0 30px 80px rgba(0, 0, 0, 0.42),
+        inset 0 1px 0 rgba(255, 255, 255, 0.022);
+
+    backdrop-filter: blur(17px);
+    -webkit-backdrop-filter: blur(17px);
+}
+
+/* =========================================================
+   CARD HEADING
+========================================================= */
+
+.register-card-heading {
+    text-align: center;
+}
+
+.register-card-heading h2,
+.register-card > h1 {
+    margin: 0;
+
+    color: #f5f5f4;
+
+    font-size: 31px;
+    line-height: 1.15;
+
+    font-weight: 650;
+
+    letter-spacing: -0.9px;
+}
+
+.register-card-heading p,
+.register-card > .register-subtitle {
+    margin: 9px 0 0;
+
+    color: rgba(229, 231, 235, 0.52);
+
+    font-size: 13px;
+}
+
+/* =========================================================
+   SOCIAL LOGIN
+========================================================= */
+
+.social-login {
+    width: 100%;
+
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+
+    margin-top: 25px;
+}
+
+.social-btn {
+    width: 100%;
+    height: 52px;
+
+    padding: 0 16px;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    gap: 11px;
+
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    border-radius: 8px;
+
+    background: rgba(8, 10, 12, 0.72);
+
+    color: #f2f2f2;
+
+    font-family: inherit;
+    font-size: 14px;
+    font-weight: 500;
+
+    cursor: pointer;
+
+    transition:
+        background 0.2s ease,
+        border-color 0.2s ease,
+        transform 0.2s ease;
+}
+.social-btn:hover {
+    background: rgba(20, 22, 25, 0.96);
+
+    border-color: rgba(255, 255, 255, 0.25);
+
+    transform: translateY(-1px);
+}
+
+.social-btn:active {
+    transform: translateY(0);
+}
+
+.social-icon {
+    width: 19px;
+    height: 19px;
+
+    flex-shrink: 0;
+
+    font-size: 19px;
+}
+
+.github-icon {
+    color: #ffffff;
+}
+
+.microsoft-icon {
+    color: #ffffff;
+}
+
+/* =========================================================
+   DIVIDER
+========================================================= */
+
+.register-divider,
+.continue-divider {
+    width: 100%;
+
+    display: flex;
+    align-items: center;
+
+    gap: 17px;
+
+    margin: 24px 0 22px;
+}
+
+.register-divider span,
+.continue-divider span {
+    flex: 1;
+
+    height: 1px;
+
+    background: rgba(255, 255, 255, 0.105);
+}
+
+.register-divider p,
+.continue-divider p {
+    margin: 0;
+
+    color: rgba(229, 231, 235, 0.45);
+
+    font-size: 11px;
+
+    text-transform: uppercase;
+}
+
+/* =========================================================
+   NEW FORM STRUCTURE
+========================================================= */
+
+.register-form {
+    width: 100%;
+}
+
+.register-field {
+    width: 100%;
+
+    margin-bottom: 16px;
+}
+
+.register-field label {
+    display: block;
+
+    margin-bottom: 7px;
+
+    color: rgba(245, 245, 244, 0.78);
+
+    font-size: 12px;
+    font-weight: 500;
+}
+
+.register-input-wrapper {
+    position: relative;
+
+    width: 100%;
+}
+
+.register-input-wrapper input {
+    width: 100%;
+    height: 46px;
+
+    padding: 0 41px 0 41px;
+
+    background: #111315;
+
+    border: 1px solid rgba(255, 255, 255, 0.12);
+
+    border-radius: 7px;
+
+    color: #f5f5f4;
+
+    font-family: inherit;
+    font-size: 12px;
+
+    outline: none;
+
+    transition:
+        border-color 0.2s ease,
+        box-shadow 0.2s ease,
+        background 0.2s ease;
+}
+
+.register-input-wrapper input::placeholder {
+    color: rgba(229, 231, 235, 0.30);
+}
+
+.register-input-wrapper input:hover {
+    border-color: rgba(255, 255, 255, 0.18);
+}
+
+.register-input-wrapper input:focus {
+    background: #131517;
+
+    border-color: rgba(239, 99, 72, 0.64);
+
+    box-shadow:
+        0 0 0 3px rgba(239, 99, 72, 0.09);
+}
+
+.register-input-icon {
+    position: absolute;
+
+    left: 14px;
+    top: 50%;
+
+    z-index: 2;
+
+    transform: translateY(-50%);
+
+    color: rgba(229, 231, 235, 0.47);
+
+    font-size: 13px;
+
+    pointer-events: none;
+}
+
+.password-toggle {
+    position: absolute;
+
+    right: 11px;
+    top: 50%;
+
+    z-index: 2;
+
+    width: 25px;
+    height: 25px;
+
+    padding: 0;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    transform: translateY(-50%);
+
+    border: none;
+    background: transparent;
+
+    color: rgba(229, 231, 235, 0.43);
+
+    cursor: pointer;
+}
+
+.password-toggle:hover {
+    color: #f5f5f4;
+}
+
+/* Password row */
+
+.register-two-column {
+    display: grid;
+
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+
+    gap: 17px;
+}
+
+/* =========================================================
+   OLD / SIMPLE FORM STRUCTURE COMPATIBILITY
+========================================================= */
+
+.register-card .form-group {
+    width: 100%;
+    margin-bottom: 16px;
+}
+
+.register-card .form-group label {
+    display: block;
+
+    margin-bottom: 7px;
+
+    color: rgba(245, 245, 244, 0.78);
+
+    font-size: 12px;
+    font-weight: 500;
+}
+
+.register-card .form-group input {
+    width: 100%;
+    height: 46px;
+
+    padding: 0 13px;
+
+    background: #111315;
+
+    border: 1px solid rgba(255, 255, 255, 0.12);
+
+    border-radius: 7px;
+
+    color: #f5f5f4;
+
+    font-family: inherit;
+    font-size: 13px;
+
+    outline: none;
+
+    transition:
+        border-color 0.2s ease,
+        box-shadow 0.2s ease,
+        background 0.2s ease;
+}
+
+.register-card .form-group input::placeholder {
+    color: rgba(229, 231, 235, 0.30);
+}
+
+.register-card .form-group input:focus {
+    background: #131517;
+
+    border-color: rgba(239, 99, 72, 0.64);
+
+    box-shadow:
+        0 0 0 3px rgba(239, 99, 72, 0.09);
+}
+
+/* =========================================================
+   ERRORS
+========================================================= */
+
+.register-error {
+    margin: 7px 0 12px;
+
+    color: #ff9884;
+
+    font-size: 11px;
+    line-height: 1.4;
+}
+
+/* =========================================================
+   CREATE ACCOUNT BUTTON
+========================================================= */
+
+.create-account-button,
+.register-button {
+    width: 100%;
+    height: 49px;
+
+    margin-top: 4px;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    gap: 8px;
+
+    border: none;
+    border-radius: 7px;
+
+    background: #ef6348;
+
+    color: #ffffff;
+
+    font-family: inherit;
+
+    font-size: 13px;
+    font-weight: 600;
+
+    cursor: pointer;
+
+    box-shadow:
+        0 9px 27px rgba(239, 99, 72, 0.16);
+
+    transition:
+        background 0.2s ease,
+        transform 0.2s ease,
+        box-shadow 0.2s ease;
+}
+
+.create-account-button:hover,
+.register-button:hover {
+    background: #f36b51;
+
+    transform: translateY(-1px);
+
+    box-shadow:
+        0 12px 31px rgba(239, 99, 72, 0.23);
+}
+
+.create-account-button:active,
+.register-button:active {
+    transform: translateY(0);
+}
+
+.create-account-button:disabled,
+.register-button:disabled {
+    opacity: 0.65;
+
+    cursor: not-allowed;
+
+    transform: none;
+
+    box-shadow: none;
+}
+
+/* =========================================================
+   LOGIN TEXT
+========================================================= */
+
+.already-account,
+.login-text {
+    margin: 19px 0 0;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    gap: 6px;
+
+    color: rgba(229, 231, 235, 0.42);
+
+    font-size: 11px;
+}
+
+.already-account a,
+.login-text a {
+    color: #ef6348;
+
+    font-size: 11px;
+
+    text-decoration: none;
+}
+
+.already-account a:hover,
+.login-text a:hover {
+    color: #ff9a84;
+
+    text-decoration: underline;
+}
+
+/* =========================================================
+   OTP OVERLAY
+========================================================= */
+
+.otp-overlay {
+    position: fixed;
+    inset: 0;
+
+    z-index: 99999;
+
+    width: 100vw;
+    height: 100dvh;
+
+    padding: 20px;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    overflow: hidden;
+
+    background: rgba(0, 0, 0, 0.65);
+
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+
+    box-sizing: border-box;
+}
+
+/* =========================================================
+   OTP POPUP
+========================================================= */
+
+.otp-popup {
+    position: relative;
+
+    width: min(100%, 430px);
+
+    max-height: calc(100dvh - 40px);
+
+    padding: 32px 35px;
+
+    overflow-y: auto;
+
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+
+    background:
+        linear-gradient(
+            180deg,
+            rgba(19, 20, 22, 0.985),
+            rgba(11, 12, 14, 0.985)
+        );
+
+    border: 1px solid rgba(255, 255, 255, 0.12);
+
+    border-radius: 15px;
+
+    box-shadow:
+        0 35px 100px rgba(0, 0, 0, 0.68),
+        inset 0 1px 0 rgba(255, 255, 255, 0.025);
+}
+
+.otp-popup::-webkit-scrollbar {
+    width: 0;
+    height: 0;
+    display: none;
+}
+
+/* =========================================================
+   OTP CLOSE
+========================================================= */
+
+.otp-close {
+    position: absolute;
+
+    top: 11px;
+    right: 13px;
+
+    width: 30px;
+    height: 30px;
+
+    padding: 0;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    border: none;
+    background: transparent;
+
+    color: rgba(255, 255, 255, 0.42);
+
+    font-size: 24px;
+    line-height: 1;
+
+    cursor: pointer;
+}
+
+.otp-close:hover {
+    color: #ffffff;
+}
+
+/* =========================================================
+   OTP HEADER
+========================================================= */
+
+.otp-header {
+    margin-bottom: 24px;
+
+    text-align: center;
+}
+
+.otp-icon {
+    width: 52px;
+    height: 52px;
+
+    margin: 0 auto 15px;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    border: 1px solid rgba(239, 99, 72, 0.22);
+    border-radius: 50%;
+
+    background: rgba(239, 99, 72, 0.095);
+
+    color: #ef6348;
+
+    font-size: 19px;
+}
+
+.otp-header h2 {
+    margin: 0 0 9px;
+
+    color: #f5f5f4;
+
+    font-size: 25px;
+    font-weight: 650;
+}
+
+.otp-header p {
+    margin: 0 0 5px;
+
+    color: rgba(229, 231, 235, 0.50);
+
+    font-size: 13px;
+}
+
+.otp-header strong {
+    color: #f5f5f4;
+
+    font-size: 13px;
+
+    word-break: break-word;
+}
+
+/* =========================================================
+   OTP FORM
+========================================================= */
+
+.otp-label {
+    display: block;
+
+    margin-bottom: 8px;
+
+    color: #f5f5f4;
+
+    font-size: 13px;
+    font-weight: 500;
+}
+
+.otp-input {
+    width: 100%;
+    height: 54px;
+
+    padding: 0 14px;
+
+    background: rgba(255, 255, 255, 0.018);
+
+    border: 1px solid rgba(255, 255, 255, 0.12);
+
+    border-radius: 7px;
+
+    color: #f5f5f4;
+
+    text-align: center;
+
+    font-family: inherit;
+    font-size: 22px;
+    font-weight: 650;
+
+    letter-spacing: 8px;
+
+    outline: none;
+
+    transition:
+        border-color 0.2s ease,
+        box-shadow 0.2s ease;
+}
+
+.otp-input:focus {
+    border-color: rgba(239, 99, 72, 0.62);
+
+    box-shadow:
+        0 0 0 3px rgba(239, 99, 72, 0.09);
+}
+
+.otp-input::placeholder {
+    color: rgba(255, 255, 255, 0.18);
+}
+
+/* =========================================================
+   OTP BUTTONS
+========================================================= */
+
+.otp-verify-button {
+    width: 100%;
+    height: 48px;
+
+    margin-top: 17px;
+
+    border: none;
+    border-radius: 7px;
+
+    background: #ef6348;
+
+    color: #ffffff;
+
+    font-family: inherit;
+
+    font-size: 14px;
+    font-weight: 600;
+
+    cursor: pointer;
+
+    transition:
+        background 0.2s ease,
+        transform 0.2s ease;
+}
+
+.otp-verify-button:hover {
+    background: #f36b51;
+
+    transform: translateY(-1px);
+}
+
+.otp-verify-button:disabled {
+    opacity: 0.65;
+
+    cursor: not-allowed;
+
+    transform: none;
+}
+
+.otp-resend-button {
+    width: 100%;
+    height: 44px;
+
+    margin-top: 10px;
+
+    border: 1px solid rgba(255, 255, 255, 0.12);
+
+    border-radius: 7px;
+
+    background: rgba(255, 255, 255, 0.025);
+
+    color: rgba(229, 231, 235, 0.70);
+
+    font-family: inherit;
+
+    font-size: 13px;
+
+    cursor: pointer;
+
+    transition:
+        background 0.2s ease,
+        border-color 0.2s ease;
+}
+
+.otp-resend-button:hover {
+    background: rgba(255, 255, 255, 0.055);
+
+    border-color: rgba(255, 255, 255, 0.20);
+}
+
+.otp-resend-button:disabled {
+    opacity: 0.55;
+
+    cursor: not-allowed;
+}
+
+/* =========================================================
+   OTP MESSAGES
+========================================================= */
+
+.otp-error {
+    margin: 11px 0 0;
+
+    color: #ff9682;
+
+    text-align: center;
+
+    font-size: 12px;
+    line-height: 1.4;
+}
+
+.otp-success {
+    margin: 11px 0 0;
+
+    color: #9be5bc;
+
+    text-align: center;
+
+    font-size: 12px;
+    line-height: 1.4;
+}
+
+.otp-info {
+    margin: 15px 0 0;
+
+    color: rgba(229, 231, 235, 0.34);
+
+    text-align: center;
+
+    font-size: 11px;
+}
+
+/* =========================================================
+   RESPONSIVE
+========================================================= */
+
+@media (max-width: 1150px) {
+
+    .register-navbar {
+        padding: 0 5%;
+    }
+
+    .register-content {
+        grid-template-columns: minmax(0, 1fr) minmax(430px, 0.95fr);
+    }
+
+    .register-intro {
+        padding-left: 6%;
+        padding-right: 6%;
+    }
+
+    .register-intro h1 {
+        font-size: clamp(44px, 5vw, 62px);
+    }
+
+    .register-intro-description {
+        font-size: 16px;
+    }
+
+    .register-form-area {
+        padding-left: 28px;
+        padding-right: 5%;
+    }
+}
+
+/* =========================================================
+   TABLET / MOBILE
+========================================================= */
+
+@media (max-width: 900px) {
+
+    .register-navbar {
+        flex-basis: 68px;
+        height: 68px;
+    }
+
+    .register-content {
+        height: calc(100dvh - 68px);
+
+        grid-template-columns: 1fr;
+    }
+
+    .register-intro {
+        display: none;
+    }
+
+    .register-form-area {
+        width: 100%;
+        height: 100%;
+
+        padding: 24px 20px;
+    }
+
+    .register-form-area .register-card {
+        width: min(100%, 540px);
+    }
+}
+
+/* =========================================================
+   SMALL MOBILE
+========================================================= */
+
+@media (max-width: 560px) {
+
+    .register-navbar {
+        padding: 0 18px;
+    }
+
+    .register-brand {
+        font-size: 21px;
+    }
+
+    .register-brand-icon {
+        font-size: 17px;
+    }
+
+    .register-nav-links {
+        display: none;
+    }
+
+    .register-theme-button {
+        width: 38px;
+        height: 38px;
+    }
+
+    .register-form-area {
+        padding: 17px 12px;
+    }
+
+    .register-form-area .register-card {
+        padding: 28px 21px 25px;
+
+        border-radius: 13px;
+    }
+
+    .register-card-heading h2,
+    .register-card > h1 {
+        font-size: 28px;
+    }
+
+    .register-two-column {
+        grid-template-columns: 1fr;
+
+        gap: 0;
+    }
+}
+
+/* =========================================================
+   VERY SHORT DESKTOP SCREENS
+========================================================= */
+
+@media (min-width: 901px) and (max-height: 760px) {
+
+    .register-navbar {
+        flex-basis: 66px;
+        height: 66px;
+    }
+
+    .register-content {
+        height: calc(100dvh - 66px);
+    }
+
+    .register-intro {
+        padding-top: 30px;
+        padding-bottom: 30px;
+    }
+
+    .register-intro h1 {
+        font-size: clamp(42px, 4.4vw, 61px);
+    }
+
+    .register-intro-description {
+        margin-top: 19px;
+        font-size: 15px;
+    }
+
+    .register-benefits {
+        gap: 17px;
+        margin-top: 25px;
+    }
+
+    .benefit-icon {
+        width: 52px;
+        height: 52px;
+        flex-basis: 52px;
+    }
+
+    .register-form-area {
+        padding-top: 17px;
+        padding-bottom: 17px;
+    }
+
+    .register-form-area .register-card {
+        padding-top: 26px;
+        padding-bottom: 23px;
+    }
+
+    .social-login {
+        margin-top: 19px;
+    }
+
+    .social-btn {
+        height: 40px;
+    }
+
+    .register-divider,
+    .continue-divider {
+        margin-top: 19px;
+        margin-bottom: 18px;
+    }
+
+    .register-field,
+    .register-card .form-group {
+        margin-bottom: 12px;
+    }
+
+    .register-input-wrapper input,
+    .register-card .form-group input {
+        height: 42px;
+    }
+
+    .create-account-button,
+    .register-button {
+        height: 45px;
+    }
+
+    .already-account,
+    .login-text {
+        margin-top: 14px;
+    }
+}
+
+/* =========================================================
+   EXTRA SMALL HEIGHT
+========================================================= */
+
+@media (max-height: 620px) {
+
+    .register-form-area {
+        align-items: flex-start;
+    }
+
+    .register-form-area .register-card {
+        margin: 0 auto;
+    }
+}
+/* =========================================================
+   FORCE SOCIAL BUTTON HEIGHT
+========================================================= */
+
+.register-page .social-login .social-btn {
+    width: 100% !important;
+
+    height: 58px !important;
+    min-height: 58px !important;
+    max-height: 58px !important;
+
+    flex: 0 0 58px !important;
+
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+
+    gap: 12px !important;
+
+    padding: 0 18px !important;
+
+    box-sizing: border-box !important;
+
+    border: 1px solid rgba(255, 255, 255, 0.14) !important;
+    border-radius: 8px !important;
+
+    background: rgba(8, 10, 12, 0.72) !important;
+
+    color: #f2f2f2 !important;
+
+    font-size: 14px !important;
+    line-height: 1 !important;
+}
+
+.register-page .social-login {
+    display: flex !important;
+    flex-direction: column !important;
+
+    gap: 11px !important;
+}
+
+.register-page .social-login .social-icon {
+    width: 22px !important;
+    height: 22px !important;
+
+    font-size: 22px !important;
+
+    flex: 0 0 22px !important;
+}
+
+
+/* Hover */
+
+.register-page .social-login .social-btn:hover {
+    background: #151719 !important;
+
+    border-color: rgba(255, 255, 255, 0.27) !important;
+
+    transform: translateY(-1px);
+}
+
+
+/* Mobile bhi same proper height */
+
+@media (max-width: 600px) {
+
+    .register-page .social-login .social-btn {
+        height: 54px !important;
+        min-height: 54px !important;
+        max-height: 54px !important;
+
+        flex-basis: 54px !important;
+    }
+}
