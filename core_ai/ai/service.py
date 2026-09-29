@@ -97,7 +97,11 @@ class AIService:
         except AIProviderError:
             raise
 
-        documentation = self.output_parser.parse(response)
+        try:
+            documentation = self.output_parser.parse(response)
+        except ValueError:
+            response = self.provider.generate(prompt)
+            documentation = self.output_parser.parse(response)
 
         changes = self.change_generator.generate(
             documentation,

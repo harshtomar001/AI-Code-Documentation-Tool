@@ -35,6 +35,92 @@ class FailingAIProvider:
         raise AIProviderError("Provider failed")
 
 
+class InvalidThenValidAIProvider:
+    def __init__(self) -> None:
+        self.calls = 0
+
+    def generate(self, prompt: str) -> str:
+        self.calls += 1
+
+        if self.calls == 1:
+            return "not valid json"
+
+        return """
+{
+    "files": [
+        {
+            "path": "sample.py",
+            "changes": [
+                {
+                    "type": "docstring",
+                    "target": "calculate_discount",
+                    "content": "Calculate the discount for a purchase."
+                }
+            ]
+        }
+    ],
+    "readme": "# Sample Project"
+}
+"""
+
+
+class AlwaysInvalidAIProvider:
+    def __init__(self) -> None:
+        self.calls = 0
+
+    def generate(self, prompt: str) -> str:
+        self.calls += 1
+        return "not valid json"
+
+
+def test_ai_service_retries_once_when_structured_output_is_invalid() -> None:
+    provider = InvalidThenValidAIProvider()
+
+    ai_service = AIService(
+        provider=provider,
+        context_builder=ContextBuilder(),
+        prompt_builder=DocumentationPromptBuilder(),
+        output_parser=StructuredOutputParser(),
+        change_generator=ChangeGenerator(),
+    )
+
+    pipeline = CorePipeline(ai_service=ai_service)
+
+    result = pipeline.run(
+        repository_path="core_ai/demo_project",
+        repository_name="demo_project",
+    )
+
+    assert result.ai_result is not None
+    assert result.ai_result.documentation.files
+    assert provider.calls == 2
+
+
+def test_ai_service_raises_after_second_invalid_response() -> None:
+    provider = AlwaysInvalidAIProvider()
+
+    ai_service = AIService(
+        provider=provider,
+        context_builder=ContextBuilder(),
+        prompt_builder=DocumentationPromptBuilder(),
+        output_parser=StructuredOutputParser(),
+        change_generator=ChangeGenerator(),
+    )
+
+    pipeline = CorePipeline(ai_service=ai_service)
+
+    try:
+        pipeline.run(
+            repository_path="core_ai/demo_project",
+            repository_name="demo_project",
+        )
+    except PipelineError as exc:
+        assert str(exc) == "Core AI pipeline failed"
+        assert provider.calls == 2
+    else:
+        raise AssertionError("PipelineError was not raised")
+
+
 def create_ai_service():
     return AIService(
         provider=FakeAIProvider(),
