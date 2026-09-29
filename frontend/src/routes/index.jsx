@@ -1,3 +1,4 @@
+
 import { Routes, Route } from "react-router-dom";
 
 import Landing from "../Pages/Landing/landing";
@@ -5,32 +6,46 @@ import Login from "../Pages/Login/login";
 import Register from "../Pages/Register/Register";
 import Dashboard from "../Pages/Dashboard/dashboard";
 import OAuthCallback from "../Pages/OAuthCallback/OAuthCallback";
+import Repository from "../Pages/Repository/Repository";
 import Forgot from "../Pages/Login/Forgot";
 import ProtectedRoute from "./ProtectedRoute";
-
+import DocPilot from "../Pages/DocPilot/DocPilot";
 function AppRoutes() {
   return (
     <Routes>
 
-      {/* PUBLIC */}
-      <Route path="/" element={<Landing />} />
+      <Route
+        path="/"
+        element={<Landing />}
+      />
 
-      <Route path="/login" element={<Login />} />
+      <Route
+        path="/login"
+        element={<Login />}
+      />
 
-      <Route path="/register" element={<Register />} />
+      <Route
+        path="/register"
+        element={<Register />}
+      />
       <Route path="/forgot-password" element={<Forgot />} />
-      {/* GOOGLE / MICROSOFT CALLBACK */}
+      {/* OAuth callback MUST be public */}
       <Route
         path="/oauth/callback"
         element={<OAuthCallback />}
       />
 
-      {/* PROTECTED */}
+      {/* Protected pages */}
       <Route element={<ProtectedRoute />}>
         <Route
           path="/dashboard"
           element={<Dashboard />}
         />
+        <Route
+          path="/repository/:owner/:repo"
+          element={<Repository />}
+        />
+        <Route path="/docpilot" element={<DocPilot />} />
       </Route>
 
     </Routes>

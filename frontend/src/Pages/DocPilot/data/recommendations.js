@@ -1,0 +1,21 @@
+/** Architecture suggestions shown on the "Architecture ideas" view. **bold** is supported. */
+export const RECOMMENDATIONS = [
+  { title: 'Decouple generation from review', tag: 'Core',
+    body: 'Save every batch result as a patch set. Each change has its own status: **pending, approved, skipped, committed or stale**. The popup becomes a view over that data, so a refresh, a second reviewer or a batch that lands early cannot break anything.' },
+  { title: 'Push results, do not poll', tag: 'Reliability',
+    body: 'Stream **batch.ready** and **commit.done** events over SSE, with Last-Event-ID so a reconnect replays what was missed. Keep polling only as a fallback.' },
+  { title: 'Idempotent batch jobs', tag: 'Reliability',
+    body: 'Run each batch as its own queue job with retries, exponential backoff, a dead-letter queue and per-tenant concurrency limits. A failed batch retries alone and never blocks the other 99.' },
+  { title: 'Keep secrets out of the model', tag: 'Safety',
+    body: 'Scan before any LLM call, replace findings with placeholders, and add an **egress check** on every outbound prompt. Exclude files such as .env and *.pem entirely and write an audit log.' },
+  { title: 'Prove that only comments changed', tag: 'Safety',
+    body: 'Parse the file before and after with tree-sitter or the language AST and reject any patch that changes a non-comment token. Show a "code unchanged" badge in the review window (already in this prototype).' },
+  { title: 'Commit to a branch and open a PR', tag: 'Safety',
+    body: 'Never write to the default branch. Use one atomic commit per file or batch through the Git data API, remember the base SHA, and mark a change **stale** if the file moved upstream. "Commit repository" then means "open the PR".' },
+  { title: 'Smarter batches than a flat 10', tag: 'Quality and cost',
+    body: 'Group by token budget and module locality so related files share context. Send signatures and callers as context, detect the repo docstring style (Google, NumPy, Sphinx), and cache the shared prompt prefix.' },
+  { title: 'Make review faster', tag: 'UX',
+    body: 'Give each change a confidence score, sort risky ones first, allow editing the "after" text inline, and let "commit all" auto-approve only high-confidence changes in future batches.' },
+  { title: 'Observe and cap spend', tag: 'Operations',
+    body: 'Track tokens, cost and latency per batch, add pause, cancel and budget limits, isolate tenants, run workers in throwaway sandboxes and delete the checkout when the job ends.' },
+];

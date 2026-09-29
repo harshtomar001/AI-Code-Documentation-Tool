@@ -12,6 +12,8 @@ from sqlalchemy.orm import Mapped, mapped_column
 
 from database.database import Base
 
+from sqlalchemy import Column, Integer, String, Text, DateTime, ForeignKey
+from sqlalchemy.orm import relationship
 
 # =========================================================
 # USER
@@ -19,7 +21,12 @@ from database.database import Base
 
 class User(Base):
     __tablename__ = "users"
-
+    github_connection = relationship(
+        "GitHubConnection",
+        back_populates="user",
+        uselist=False,
+        cascade="all, delete-orphan"
+    )
     id: Mapped[int] = mapped_column(
         primary_key=True,
         index=True,
@@ -172,3 +179,22 @@ class OTPVerification(Base):
         nullable=False,
     )
 
+class GitHubConnection(Base):
+    __tablename__ = "github_connections"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), unique=True, nullable=False)
+
+    github_user_id = Column(String, nullable=False)
+    github_username = Column(String, nullable=False)
+
+    access_token = Column(Text, nullable=False)
+
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(
+        DateTime,
+        default=datetime.utcnow,
+        onupdate=datetime.utcnow
+    )
+
+    user = relationship("User", back_populates="github_connection")

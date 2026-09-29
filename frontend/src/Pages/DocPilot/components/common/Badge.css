@@ -1,0 +1,22 @@
+.badge {
+  position: absolute;
+  top: -9px;
+  right: -9px;
+  min-width: 24px;
+  height: 24px;
+  padding: 0 7px;
+  border-radius: 12px;
+  background: var(--badge);
+  color: #fff;
+  font-size: 12.5px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  display: grid;
+  place-items: center;
+  box-shadow: 0 0 0 3px var(--panel-2), 0 4px 10px -2px rgba(255, 77, 31, 0.55);
+  z-index: 2;
+  animation: badge-pop 0.45s cubic-bezier(0.2, 1.6, 0.4, 1);
+}
+.badge--inline { position: static; box-shadow: 0 0 0 2px var(--sidebar); }
+.badge--bell { top: -5px; right: -6px; min-width: 18px; height: 18px; padding: 0 5px; font-size: 11px; box-shadow: 0 0 0 2px var(--bg); }
+@keyframes badge-pop { 0% { transform: scale(0.4); } 100% { transform: scale(1); } }
