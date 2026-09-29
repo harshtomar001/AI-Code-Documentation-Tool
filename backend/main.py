@@ -4,6 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.sessions import SessionMiddleware
 from config.settings import settings
 from routes.github import router as github_router
+from routes.projects import router as projects_router
 app = FastAPI(
     title=settings.APP_NAME,
     debug=settings.DEBUG,
@@ -27,6 +28,7 @@ app.add_middleware(
 )
 app.include_router(auth_router)
 app.include_router(github_router)
+app.include_router(projects_router)
 @app.get("/")
 async def root():
     return {

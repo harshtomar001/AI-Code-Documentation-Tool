@@ -1,4 +1,7 @@
-import { useEffect, useState } from "react";
+import {
+  useEffect,
+  useState,
+} from "react";
 import { useNavigate } from "react-router-dom";
 
 import {
@@ -7,6 +10,10 @@ import {
   getGitHubRepositories,
   getGitHubStatus,
 } from "../../../api/github";
+
+import { ProjectSetupModal } from "./ActionCards";
+import { createProject } from "../../../api/projects";
+import { saveProjectFiles } from "../../../api/projectStore";
 
 const navItems = [
   ["Dashboard", "⌂"],
@@ -31,106 +38,113 @@ export default function Sidebar({
 }) {
   const navigate = useNavigate();
 
+  const [github, setGithub] =
+    useState({
+      connected: false,
+      username: null,
+      repositories: [],
+      loading: true,
+    });
+
+  const [showAll, setShowAll] =
+    useState(false);
+
+  const [connecting, setConnecting] =
+    useState(false);
+
   /* =========================================================
-     GITHUB STATE
+     PROJECT SETUP MODAL
      ========================================================= */
 
-  const [github, setGithub] = useState({
-    connected: false,
-    username: null,
-    repositories: [],
-    loading: true,
-  });
+  const [
+    showProjectSetup,
+    setShowProjectSetup,
+  ] = useState(false);
 
-  const [showAll, setShowAll] = useState(false);
-  const [connecting, setConnecting] = useState(false);
+  const [
+    selectedProject,
+    setSelectedProject,
+  ] = useState(null);
 
   /* =========================================================
-     GITHUB STATUS + REPOSITORY LOADING
+     LOAD GITHUB DATA
      ========================================================= */
 
   useEffect(() => {
     let cancelled = false;
 
-    const fetchGitHubData = async () => {
-      const token = getToken();
+    const fetchGitHubData =
+      async () => {
+        const token = getToken();
 
-      /* -------------------------------------------------------
-         NO TOKEN
-         ------------------------------------------------------- */
-
-      if (!token) {
-        if (!cancelled) {
-          setGithub({
-            connected: false,
-            username: null,
-            repositories: [],
-            loading: false,
-          });
-        }
-
-        return;
-      }
-
-      try {
-        /* -----------------------------------------------------
-           GET GITHUB STATUS
-           ----------------------------------------------------- */
-
-        const status = await getGitHubStatus(token);
-
-        if (cancelled) {
-          return;
-        }
-
-        /* -----------------------------------------------------
-           GITHUB NOT CONNECTED
-           ----------------------------------------------------- */
-
-        if (!status.connected) {
-          setGithub({
-            connected: false,
-            username: null,
-            repositories: [],
-            loading: false,
-          });
+        if (!token) {
+          if (!cancelled) {
+            setGithub({
+              connected: false,
+              username: null,
+              repositories: [],
+              loading: false,
+            });
+          }
 
           return;
         }
 
-        /* -----------------------------------------------------
-           GITHUB CONNECTED
-           GET REPOSITORIES
-           ----------------------------------------------------- */
+        try {
+          const status =
+            await getGitHubStatus(
+              token
+            );
 
-        const result = await getGitHubRepositories(token);
+          if (cancelled) {
+            return;
+          }
 
-        if (cancelled) {
-          return;
-        }
+          if (!status.connected) {
+            setGithub({
+              connected: false,
+              username: null,
+              repositories: [],
+              loading: false,
+            });
 
-        setGithub({
-          connected: true,
-          username: status.username || null,
-          repositories: result.repositories || [],
-          loading: false,
-        });
-      } catch (error) {
-        console.error(
-          "GitHub sidebar error:",
-          error
-        );
+            return;
+          }
 
-        if (!cancelled) {
+          const result =
+            await getGitHubRepositories(
+              token
+            );
+
+          if (cancelled) {
+            return;
+          }
+
           setGithub({
-            connected: false,
-            username: null,
-            repositories: [],
+            connected: true,
+            username:
+              status.username || null,
+            repositories:
+              result.repositories ||
+              [],
             loading: false,
           });
+        } catch (error) {
+          console.error(
+            "GitHub sidebar error:",
+            error
+          );
+
+          if (!cancelled) {
+            setGithub({
+              connected: false,
+              username: null,
+              repositories: [],
+              loading: false,
+            });
+          }
         }
-      }
-    };
+      };
 
     fetchGitHubData();
 
@@ -143,43 +157,143 @@ export default function Sidebar({
      CONNECT GITHUB
      ========================================================= */
 
-  const connectGitHub = async () => {
-    const token = getToken();
+  const connectGitHub =
+    async () => {
+      const token = getToken();
 
-    if (!token) {
-      onNotify?.("Please login first");
-      return;
-    }
+      if (!token) {
+        onNotify?.(
+          "Please login first"
+        );
+        return;
+      }
 
-    try {
-      setConnecting(true);
+      try {
+        setConnecting(true);
 
-      const url = await getGitHubConnectUrl(token);
+        const url =
+          await getGitHubConnectUrl(
+            token
+          );
 
-      /*
-       * Redirect browser to GitHub OAuth
-       */
-      window.location.href = url;
-    } catch (error) {
-      console.error(
-        "GitHub connect error:",
-        error
-      );
+        window.location.href =
+          url;
+      } catch (error) {
+        console.error(
+          "GitHub connect error:",
+          error
+        );
 
-      onNotify?.(
-        error.response?.data?.detail ||
-          "Could not connect GitHub"
-      );
+        onNotify?.(
+          error.response?.data
+            ?.detail ||
+            "Could not connect GitHub"
+        );
 
-      setConnecting(false);
-    }
-  };
+        setConnecting(false);
+      }
+    };
 
   /* =========================================================
      DISCONNECT GITHUB
      ========================================================= */
 
-  const handleDisconnect = async () => {
+  const handleDisconnect =
+    async () => {
+      const token = getToken();
+
+      if (!token) {
+        onNotify?.(
+          "Please login first"
+        );
+        return;
+      }
+
+      try {
+        await disconnectGitHub(
+          token
+        );
+
+        setGithub({
+          connected: false,
+          username: null,
+          repositories: [],
+          loading: false,
+        });
+
+        setShowAll(false);
+
+        onNotify?.(
+          "GitHub disconnected"
+        );
+      } catch (error) {
+        console.error(
+          "GitHub disconnect error:",
+          error
+        );
+
+        onNotify?.(
+          error.response?.data
+            ?.detail ||
+            "Could not disconnect GitHub"
+        );
+      }
+    };
+
+  /* =========================================================
+     OPEN PROJECT SETUP
+     ========================================================= */
+
+  const openRepositorySetup =
+    (repository) => {
+      const fullNameParts = (
+        repository.full_name ||
+        ""
+      ).split("/");
+
+      const owner =
+        repository.owner ||
+        fullNameParts[0] ||
+        github.username;
+
+      const repo =
+        repository.name ||
+        fullNameParts[1];
+
+      if (!owner || !repo) {
+        onNotify?.(
+          "Repository information is incomplete"
+        );
+        return;
+      }
+
+      setSelectedProject({
+        id: `github:${owner}/${repo}`,
+        source: "github",
+        owner,
+        repo,
+        name: repository.name || repo,
+        description:
+          repository.description ||
+          "",
+        html_url:
+          repository.html_url ||
+          null,
+        tags: repository.language
+          ? [repository.language]
+          : ["GitHub"],
+      });
+
+      setShowProjectSetup(
+        true
+      );
+    };
+
+  /* =========================================================
+     SAVE PROJECT AND OPEN
+     ========================================================= */
+
+  const saveAndOpenProject = async (project) => {
     const token = getToken();
 
     if (!token) {
@@ -188,75 +302,61 @@ export default function Sidebar({
     }
 
     try {
-      await disconnectGitHub(token);
+      const sourceType = project.source || "github";
 
-      setGithub({
-        connected: false,
-        username: null,
-        repositories: [],
-        loading: false,
+      const saved = await createProject(token, {
+        name: project.name,
+        description: project.description || null,
+        source_type: sourceType,
+        github_owner: project.owner || null,
+        github_repo: project.repo || null,
+        github_url: project.html_url || null,
+        local_storage_path: null,
+        language: project.language || null,
+        status: sourceType === "upload" ? "uploaded" : "imported",
+        documentation_progress: Number.isFinite(project.progress) ? project.progress : 0,
       });
 
-      setShowAll(false);
+      if (sourceType === "upload" && project.files?.length) {
+        await saveProjectFiles(saved.id, project.files);
+      }
 
-      onNotify?.("GitHub disconnected");
-    } catch (error) {
-      console.error(
-        "GitHub disconnect error:",
-        error
+      window.dispatchEvent(
+        new CustomEvent("docuai-projects-updated")
       );
 
+      setShowProjectSetup(false);
+      setSelectedProject(null);
+
+      if (sourceType === "upload") {
+        navigate(
+          `/repository/uploaded/${encodeURIComponent(saved.name)}`,
+          {
+            state: {
+              source: "upload",
+              projectName: saved.name,
+              files: project.files || [],
+              project: saved,
+            },
+          }
+        );
+        return;
+      }
+
+      navigate(
+        `/repository/${encodeURIComponent(saved.github_owner || project.owner)}/${encodeURIComponent(saved.github_repo || project.repo)}`
+      );
+    } catch (error) {
+      console.error("Sidebar project save error:", error);
       onNotify?.(
         error.response?.data?.detail ||
-          "Could not disconnect GitHub"
+          "Could not save project"
       );
     }
   };
 
   /* =========================================================
-     OPEN REPOSITORY
-     ========================================================= */
-
-  const openRepository = (repo) => {
-    /*
-     * Prefer the owner returned by the backend.
-     * If it is missing, extract it from full_name.
-     * Finally fall back to the connected GitHub username.
-     */
-    const fullNameParts = (repo.full_name || "").split("/");
-
-    const owner =
-      repo.owner ||
-      fullNameParts[0] ||
-      github.username;
-
-    const repositoryName =
-      repo.name ||
-      fullNameParts[1];
-
-    if (!owner || !repositoryName) {
-      console.error(
-        "Invalid GitHub repository data:",
-        repo
-      );
-
-      onNotify?.(
-        "Repository information is incomplete"
-      );
-      return;
-    }
-
-    navigate(
-      `/repository/${encodeURIComponent(
-        owner
-      )}/${encodeURIComponent(
-        repositoryName
-      )}`
-    );
-  };
-
-  /* =========================================================
-     THEME CLASSES
+     THEME
      ========================================================= */
 
   const text = darkMode
@@ -275,310 +375,277 @@ export default function Sidebar({
     ? "border-[#292d30] bg-[#111315]"
     : "border-[#e1e4e7] bg-[#f8f9fa]";
 
-  /* =========================================================
-     VISIBLE REPOSITORIES
-     ========================================================= */
-
-  const visibleRepositories = showAll
-    ? github.repositories
-    : github.repositories.slice(0, 5);
-
-  /* =========================================================
-     UI
-     ========================================================= */
+  const visibleRepositories =
+    showAll
+      ? github.repositories
+      : github.repositories.slice(
+          0,
+          5
+        );
 
   return (
-    <aside
-      className={`
-        fixed
-        inset-y-0
-        left-0
-        z-10
-        flex
-        w-[250px]
-        flex-col
-        border-r
-        max-[850px]:w-[210px]
-        max-[700px]:hidden
-        ${
-          darkMode
-            ? "border-[#292d30] bg-[#0d0f10]"
-            : "border-[#dfe2e5] bg-white"
-        }
-      `}
-    >
-      {/* =====================================================
-          LOGO
-          ===================================================== */}
-
-      <div
+    <>
+      <aside
         className={`
+          fixed
+          inset-y-0
+          left-0
+          z-10
           flex
-          h-20
-          shrink-0
-          items-center
-          border-b
-          px-10
-          text-2xl
-          font-semibold
+          w-[250px]
+          flex-col
+          border-r
+          max-[850px]:w-[210px]
+          max-[700px]:hidden
           ${
             darkMode
-              ? "border-[#222628]"
-              : "border-[#e8eaec]"
+              ? "border-[#292d30] bg-[#0d0f10]"
+              : "border-[#dfe2e5] bg-white"
           }
         `}
       >
-        <div className="mr-[15px] text-[25px]">
-          ▣
+        {/* =====================================================
+            LOGO
+            ===================================================== */}
+
+        <div
+          className={`
+            flex
+            h-20
+            shrink-0
+            items-center
+            border-b
+            px-10
+            text-2xl
+            font-semibold
+            ${
+              darkMode
+                ? "border-[#222628]"
+                : "border-[#e8eaec]"
+            }
+          `}
+        >
+          <div className="mr-[15px] text-[25px]">
+            ▣
+          </div>
+
+          <span>
+            DocuAI
+            <span className="text-[#ef5148]">
+              .
+            </span>
+          </span>
         </div>
 
-        <span>
-          DocuAI
-          <span className="text-[#ef5148]">
-            .
-          </span>
-        </span>
-      </div>
+        {/* =====================================================
+            NAVIGATION
+            ===================================================== */}
 
-      {/* =====================================================
-          NAVIGATION
-          ===================================================== */}
+        <nav className="p-[18px]">
+          {navItems.map(
+            ([item, icon]) => (
+              <button
+                key={item}
+                type="button"
+                className={`
+                  mb-[5px]
+                  flex
+                  h-[51px]
+                  w-full
+                  items-center
+                  gap-5
+                  rounded-[7px]
+                  px-[23px]
+                  text-left
+                  text-[15px]
+                  transition
+                  ${
+                    activeMenu === item
+                      ? active
+                      : `${text} ${hover}`
+                  }
+                `}
+                onClick={() =>
+                  onMenuChange(item)
+                }
+              >
+                <span className="w-[23px] text-center text-[21px]">
+                  {icon}
+                </span>
 
-      <nav className="p-[18px]">
-        {navItems.map(([item, icon]) => (
-          <button
-            key={item}
-            type="button"
-            className={`
-              mb-[5px]
-              flex
-              h-[51px]
-              w-full
-              items-center
-              gap-5
-              rounded-[7px]
-              px-[23px]
-              text-left
-              text-[15px]
-              transition
-              ${
-                activeMenu === item
-                  ? active
-                  : `${text} ${hover}`
-              }
-            `}
-            onClick={() =>
-              onMenuChange(item)
-            }
-          >
-            <span className="w-[23px] text-center text-[21px]">
-              {icon}
-            </span>
+                {item}
+              </button>
+            )
+          )}
+        </nav>
 
-            {item}
-          </button>
-        ))}
-      </nav>
+        {/* =====================================================
+            GITHUB
+            ===================================================== */}
 
-      {/* =====================================================
-          GITHUB SECTION
-          ===================================================== */}
-
-      <div className="min-h-0 flex-1 px-[18px] pb-5">
-        {/* -----------------------------------------------------
-            GITHUB HEADER
-            ----------------------------------------------------- */}
-
-        <div className="mb-2 flex items-center justify-between px-2">
-          <span
-            className={`
-              text-[11px]
-              font-semibold
-              uppercase
-              tracking-[0.08em]
-              ${
-                darkMode
-                  ? "text-[#777e84]"
-                  : "text-[#7b8288]"
-              }
-            `}
-          >
-            GitHub
-          </span>
-
-          {github.connected && (
-            <button
-              type="button"
-              onClick={handleDisconnect}
+        <div className="min-h-0 flex-1 px-[18px] pb-5">
+          <div className="mb-2 flex items-center justify-between px-2">
+            <span
               className={`
-                text-[10px]
+                text-[11px]
+                font-semibold
+                uppercase
+                tracking-[0.08em]
                 ${
                   darkMode
-                    ? "text-[#777e84] hover:text-white"
-                    : "text-[#8a9096] hover:text-black"
+                    ? "text-[#777e84]"
+                    : "text-[#7b8288]"
                 }
               `}
             >
-              Disconnect
-            </button>
-          )}
-        </div>
+              GitHub
+            </span>
 
-        {/* =====================================================
-            GITHUB NOT CONNECTED
-            ===================================================== */}
-
-        {!github.loading &&
-          !github.connected && (
-            <div
-              className={`
-                rounded-[8px]
-                border
-                p-3
-                ${panel}
-              `}
-            >
-              <div className="mb-2 flex items-center gap-2">
-                <span className="text-[18px]">
-                  ◉
-                </span>
-
-                <span className="text-[13px] font-semibold">
-                  GitHub
-                </span>
-              </div>
-
-              <p
+            {github.connected && (
+              <button
+                type="button"
+                onClick={
+                  handleDisconnect
+                }
                 className={`
-                  mb-3
-                  text-[11px]
-                  leading-[1.45]
+                  text-[10px]
                   ${
                     darkMode
-                      ? "text-[#92999f]"
-                      : "text-[#697078]"
+                      ? "text-[#777e84] hover:text-white"
+                      : "text-[#8a9096] hover:text-black"
                   }
                 `}
               >
-                Connect GitHub to import
-                repositories.
-              </p>
-
-              <button
-                type="button"
-                disabled={connecting}
-                onClick={connectGitHub}
-                className="
-                  w-full
-                  rounded-[6px]
-                  bg-[#ef5148]
-                  px-2
-                  py-2
-                  text-[11px]
-                  font-medium
-                  text-white
-                  transition
-                  hover:bg-[#f25a51]
-                  disabled:cursor-not-allowed
-                  disabled:opacity-60
-                "
-              >
-                {connecting
-                  ? "Connecting..."
-                  : "Connect GitHub"}
+                Disconnect
               </button>
-            </div>
-          )}
-
-        {/* =====================================================
-            GITHUB LOADING
-            ===================================================== */}
-
-        {github.loading && (
-          <div
-            className={`
-              px-2
-              py-3
-              text-[11px]
-              ${
-                darkMode
-                  ? "text-[#777e84]"
-                  : "text-[#7b8288]"
-              }
-            `}
-          >
-            Loading repositories...
+            )}
           </div>
-        )}
 
-        {/* =====================================================
-            GITHUB CONNECTED
-            ===================================================== */}
+          {/* NOT CONNECTED */}
 
-        {github.connected &&
-          !github.loading && (
-            <div
-              className={`
-                rounded-[8px]
-                border
-                p-2
-                ${panel}
-              `}
-            >
-              {/* ------------------------------------------------
-                  USERNAME
-                  ------------------------------------------------ */}
+          {!github.loading &&
+            !github.connected && (
+              <div
+                className={`
+                  rounded-[8px]
+                  border
+                  p-3
+                  ${panel}
+                `}
+              >
+                <div className="mb-2 flex items-center gap-2">
+                  <span className="text-[18px]">
+                    ◉
+                  </span>
 
-              <div className="mb-2 flex items-center gap-2 px-1.5">
-                <span className="h-2 w-2 rounded-full bg-[#3fb950]" />
+                  <span className="text-[13px] font-semibold">
+                    GitHub
+                  </span>
+                </div>
 
-                <span
+                <p
                   className={`
-                    truncate
+                    mb-3
                     text-[11px]
+                    leading-[1.45]
                     ${
                       darkMode
-                        ? "text-[#c7ccd0]"
-                        : "text-[#4d555b]"
+                        ? "text-[#92999f]"
+                        : "text-[#697078]"
                     }
                   `}
                 >
-                  {github.username}
-                </span>
-              </div>
+                  Connect GitHub to
+                  import repositories.
+                </p>
 
-              {/* ------------------------------------------------
-                  REPOSITORY HEADING
-                  ------------------------------------------------ */}
-
-              <div
-                className={`
-                  mb-1
-                  px-1.5
-                  text-[10px]
-                  font-semibold
-                  uppercase
-                  tracking-[0.06em]
-                  ${
-                    darkMode
-                      ? "text-[#777e84]"
-                      : "text-[#7b8288]"
+                <button
+                  type="button"
+                  disabled={
+                    connecting
                   }
-                `}
-              >
-                Repositories
-              </div>
-
-              {/* =================================================
-                  NO REPOSITORIES
-                  ================================================= */}
-
-              {github.repositories.length === 0 ? (
-                <div
-                  className={`
-                    px-1.5
+                  onClick={
+                    connectGitHub
+                  }
+                  className="
+                    w-full
+                    rounded-[6px]
+                    bg-[#ef5148]
+                    px-2
                     py-2
                     text-[11px]
+                    font-medium
+                    text-white
+                    transition
+                    hover:bg-[#f25a51]
+                    disabled:cursor-not-allowed
+                    disabled:opacity-60
+                  "
+                >
+                  {connecting
+                    ? "Connecting..."
+                    : "Connect GitHub"}
+                </button>
+              </div>
+            )}
+
+          {/* LOADING */}
+
+          {github.loading && (
+            <div
+              className={`
+                px-2
+                py-3
+                text-[11px]
+                ${
+                  darkMode
+                    ? "text-[#777e84]"
+                    : "text-[#7b8288]"
+                }
+              `}
+            >
+              Loading repositories...
+            </div>
+          )}
+
+          {/* CONNECTED */}
+
+          {github.connected &&
+            !github.loading && (
+              <div
+                className={`
+                  rounded-[8px]
+                  border
+                  p-2
+                  ${panel}
+                `}
+              >
+                <div className="mb-2 flex items-center gap-2 px-1.5">
+                  <span className="h-2 w-2 rounded-full bg-[#3fb950]" />
+
+                  <span
+                    className={`
+                      truncate
+                      text-[11px]
+                      ${
+                        darkMode
+                          ? "text-[#c7ccd0]"
+                          : "text-[#4d555b]"
+                      }
+                    `}
+                  >
+                    {github.username}
+                  </span>
+                </div>
+
+                <div
+                  className={`
+                    mb-1
+                    px-1.5
+                    text-[10px]
+                    font-semibold
+                    uppercase
+                    tracking-[0.06em]
                     ${
                       darkMode
                         ? "text-[#777e84]"
@@ -586,100 +653,139 @@ export default function Sidebar({
                     }
                   `}
                 >
-                  No repositories found.
+                  Repositories
                 </div>
-              ) : (
-                /* =================================================
-                   REPOSITORIES
-                   ================================================= */
 
-                <div className="max-h-[235px] space-y-0.5 overflow-y-auto pr-1">
-                  {visibleRepositories.map(
-                    (repo) => (
-                      <button
-                        key={repo.id}
-                        type="button"
-                        onClick={() =>
-                          openRepository(repo)
-                        }
-                        title={repo.full_name}
-                        className={`
-                          flex
-                          w-full
-                          items-center
-                          gap-2
-                          rounded-[5px]
-                          px-1.5
-                          py-[7px]
-                          text-left
-                          text-[11px]
-                          transition
-                          ${
-                            darkMode
-                              ? "text-[#aeb4b9] hover:bg-[#1d2022] hover:text-white"
-                              : "text-[#60676d] hover:bg-[#eceeef] hover:text-[#17191c]"
+                {github.repositories
+                  .length ===
+                0 ? (
+                  <div
+                    className={`
+                      px-1.5
+                      py-2
+                      text-[11px]
+                      ${
+                        darkMode
+                          ? "text-[#777e84]"
+                          : "text-[#7b8288]"
+                      }
+                    `}
+                  >
+                    No repositories found.
+                  </div>
+                ) : (
+                  <div className="max-h-[235px] space-y-0.5 overflow-y-auto pr-1">
+                    {visibleRepositories.map(
+                      (repo) => (
+                        <button
+                          key={
+                            repo.id
                           }
-                        `}
-                      >
-                        {/* Folder Icon */}
-
-                        <span className="shrink-0 text-[12px]">
-                          📁
-                        </span>
-
-                        {/* Repository Name */}
-
-                        <span className="min-w-0 flex-1 truncate">
-                          {repo.name}
-                        </span>
-
-                        {/* Private Badge */}
-
-                        {repo.private && (
-                          <span className="shrink-0 text-[9px] opacity-60">
-                            Private
+                          type="button"
+                          onClick={() =>
+                            openRepositorySetup(
+                              repo
+                            )
+                          }
+                          title={
+                            repo.full_name
+                          }
+                          className={`
+                            flex
+                            w-full
+                            items-center
+                            gap-2
+                            rounded-[5px]
+                            px-1.5
+                            py-[7px]
+                            text-left
+                            text-[11px]
+                            transition
+                            ${
+                              darkMode
+                                ? "text-[#aeb4b9] hover:bg-[#1d2022] hover:text-white"
+                                : "text-[#60676d] hover:bg-[#eceeef] hover:text-[#17191c]"
+                            }
+                          `}
+                        >
+                          <span className="shrink-0 text-[12px]">
+                            📁
                           </span>
-                        )}
-                      </button>
-                    )
-                  )}
-                </div>
-              )}
 
-              {/* =================================================
-                  VIEW ALL / SHOW LESS
-                  ================================================= */}
+                          <span className="min-w-0 flex-1 truncate">
+                            {repo.name}
+                          </span>
 
-              {github.repositories.length > 5 && (
-                <button
-                  type="button"
-                  onClick={() =>
-                    setShowAll(
-                      (value) => !value
-                    )
-                  }
-                  className={`
-                    mt-2
-                    w-full
-                    px-1.5
-                    text-left
-                    text-[10px]
-                    font-medium
-                    ${
-                      darkMode
-                        ? "text-[#ef5148] hover:text-[#ff6b62]"
-                        : "text-[#d83f37] hover:text-[#ef5148]"
+                          {repo.private && (
+                            <span className="shrink-0 text-[9px] opacity-60">
+                              Private
+                            </span>
+                          )}
+                        </button>
+                      )
+                    )}
+                  </div>
+                )}
+
+                {github.repositories
+                  .length > 5 && (
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setShowAll(
+                        (value) =>
+                          !value
+                      )
                     }
-                  `}
-                >
-                  {showAll
-                    ? "Show less"
-                    : `View all ${github.repositories.length} repositories →`}
-                </button>
-              )}
-            </div>
-          )}
-      </div>
-    </aside>
+                    className={`
+                      mt-2
+                      w-full
+                      px-1.5
+                      text-left
+                      text-[10px]
+                      font-medium
+                      ${
+                        darkMode
+                          ? "text-[#ef5148] hover:text-[#ff6b62]"
+                          : "text-[#d83f37] hover:text-[#ef5148]"
+                      }
+                    `}
+                  >
+                    {showAll
+                      ? "Show less"
+                      : `View all ${github.repositories.length} repositories →`}
+                  </button>
+                )}
+              </div>
+            )}
+        </div>
+      </aside>
+
+      {/* =====================================================
+          PROJECT DETAILS
+          ===================================================== */}
+
+      {showProjectSetup && (
+        <ProjectSetupModal
+          darkMode={
+            darkMode
+          }
+          initialProject={
+            selectedProject
+          }
+          onClose={() => {
+            setShowProjectSetup(
+              false
+            );
+            setSelectedProject(
+              null
+            );
+          }}
+          onSave={
+            saveAndOpenProject
+          }
+        />
+      )}
+    </>
   );
 }
