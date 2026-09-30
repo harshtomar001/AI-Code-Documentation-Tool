@@ -4,6 +4,7 @@ import {
   useState,
 } from "react";
 import {
+  useLocation,
   useNavigate,
   useParams,
 } from "react-router-dom";
@@ -12,6 +13,8 @@ import {
   getGitHubFile,
   getGitHubRepository,
 } from "../../api/github";
+import { getProjectFiles } from "../../api/projectStore";
+const EMPTY_FILES = [];
 
 /* =========================================================
    TOKEN
@@ -157,6 +160,71 @@ function buildFileTree(files) {
         }
       }
     );
+  }
+
+  return root;
+}
+
+/* =========================================================
+   BUILD UPLOADED FILE TREE
+   ========================================================= */
+
+function buildUploadedFileTree(files) {
+  const root = [];
+
+  if (!Array.isArray(files)) {
+    return root;
+  }
+
+  for (const file of files) {
+    const relativePath =
+      file.webkitRelativePath ||
+      file.name ||
+      "";
+
+    if (!relativePath) {
+      continue;
+    }
+
+    const rawParts = relativePath
+      .split("/")
+      .filter(Boolean);
+
+    // The first path segment is the selected root folder.
+    const parts =
+      rawParts.length > 1
+        ? rawParts.slice(1)
+        : rawParts;
+
+    let current = root;
+
+    parts.forEach((part, index) => {
+      const isLast =
+        index === parts.length - 1;
+
+      let existing = current.find(
+        (item) => item.name === part
+      );
+
+      if (!existing) {
+        existing = {
+          name: part,
+          path: parts
+            .slice(0, index + 1)
+            .join("/"),
+          type: isLast ? "blob" : "tree",
+          size: isLast ? file.size || 0 : 0,
+          file: isLast ? file : null,
+          children: [],
+        };
+
+        current.push(existing);
+      }
+
+      if (!isLast) {
+        current = existing.children;
+      }
+    });
   }
 
   return root;
@@ -333,16 +401,222 @@ function FileTree({
 }
 
 /* =========================================================
+   UPLOADED FILE TREE
+   ========================================================= */
+
+function UploadedFileTree({
+  items,
+  level = 0,
+  onFileClick,
+  selectedPath,
+}) {
+  const [openFolders, setOpenFolders] =
+    useState({});
+
+  const toggleFolder = (path) => {
+    setOpenFolders((current) => ({
+      ...current,
+      [path]: !current[path],
+    }));
+  };
+
+  if (!items?.length) {
+    return null;
+  }
+
+  return (
+    <div>
+      {items.map((item) => {
+        const isFolder =
+          item.type === "tree";
+
+        const isOpen =
+          !!openFolders[item.path];
+
+        if (isFolder) {
+          return (
+            <div key={item.path}>
+              <button
+                type="button"
+                onClick={() =>
+                  toggleFolder(item.path)
+                }
+                className="
+                  flex
+                  w-full
+                  items-center
+                  gap-2
+                  rounded-md
+                  px-3
+                  py-2
+                  text-left
+                  text-[13px]
+                  text-[#b8bec3]
+                  transition
+                  hover:bg-[#202427]
+                  hover:text-white
+                "
+                style={{
+                  paddingLeft:
+                    `${12 + level * 18}px`,
+                }}
+              >
+                <span className="w-3 shrink-0 text-center">
+                  {isOpen ? "▾" : "▸"}
+                </span>
+
+                <span className="shrink-0">
+                  📁
+                </span>
+
+                <span className="min-w-0 flex-1 truncate">
+                  {item.name}
+                </span>
+              </button>
+
+              {isOpen && item.children?.length > 0 && (
+                <UploadedFileTree
+                  items={item.children}
+                  level={level + 1}
+                  onFileClick={onFileClick}
+                  selectedPath={selectedPath}
+                />
+              )}
+            </div>
+          );
+        }
+
+        return (
+          <button
+            key={item.path}
+            type="button"
+            onClick={() =>
+              onFileClick(item.file)
+            }
+            className={`
+              flex
+              w-full
+              items-center
+              gap-2
+              rounded-md
+              px-3
+              py-2
+              text-left
+              text-[13px]
+              transition
+              ${
+                selectedPath === item.path
+                  ? "bg-[#242729] text-white"
+                  : "text-[#aeb4b9] hover:bg-[#202427] hover:text-white"
+              }
+            `}
+            style={{
+              paddingLeft:
+                `${30 + level * 18}px`,
+            }}
+            title={item.path}
+          >
+            <span className="shrink-0">
+              📄
+            </span>
+
+            <span className="min-w-0 flex-1 truncate">
+              {item.name}
+            </span>
+
+            {item.size > 0 && (
+              <span className="shrink-0 text-[9px] text-[#666e74]">
+                {formatFileSize(item.size)}
+              </span>
+            )}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+/* =========================================================
+   LOCAL README
+   ========================================================= */
+
+function LocalReadme({ file }) {
+  const [content, setContent] =
+    useState("Loading README...");
+
+  useEffect(() => {
+    let mounted = true;
+
+    if (!file) {
+      setContent(
+        "No README file found in this uploaded project."
+      );
+      return undefined;
+    }
+
+    file
+      .text()
+      .then((value) => {
+        if (mounted) {
+          setContent(value);
+        }
+      })
+      .catch(() => {
+        if (mounted) {
+          setContent("Could not read README file.");
+        }
+      });
+
+    return () => {
+      mounted = false;
+    };
+  }, [file]);
+
+  return (
+    <pre className="whitespace-pre-wrap break-words text-[13px] leading-6 text-[#bfc4c8]">
+      {content}
+    </pre>
+  );
+}
+
+/* =========================================================
    REPOSITORY PAGE
    ========================================================= */
 
 export default function Repository() {
   const navigate = useNavigate();
+  const location = useLocation();
 
   const {
     owner,
     repo,
+    projectName: uploadedRouteProjectName,
   } = useParams();
+
+  /*
+   * Uploaded projects use /repository/uploaded/:projectName
+   * while GitHub repositories use /repository/:owner/:repo.
+   */
+  const isUploadedRoute =
+    Boolean(uploadedRouteProjectName) ||
+    owner === "uploaded";
+
+  const isUploadedProject =
+    isUploadedRoute &&
+    (location.state?.source === "upload" ||
+      location.state?.source === "saved-upload");
+
+  const routeUploadedFiles = Array.isArray(
+    location.state?.files
+  )
+    ? location.state.files
+    : EMPTY_FILES;
+
+  const uploadedProjectName =
+    location.state?.projectName ||
+    (uploadedRouteProjectName
+      ? decodeURIComponent(uploadedRouteProjectName)
+      : "Uploaded Project");
 
   const repositoryOwner =
     decodeURIComponent(
@@ -400,6 +674,17 @@ export default function Repository() {
   const [fileError, setFileError] =
     useState("");
 
+  const [localReadmeFile, setLocalReadmeFile] =
+    useState(null);
+
+  const [resolvedUploadedFiles, setResolvedUploadedFiles] =
+    useState([]);
+
+  const uploadedFiles =
+    routeUploadedFiles.length > 0
+      ? routeUploadedFiles
+      : resolvedUploadedFiles;
+
   /* =======================================================
      LOAD REPOSITORY
      ======================================================= */
@@ -420,6 +705,127 @@ export default function Repository() {
             }
           );
 
+          return;
+        }
+
+        /* -----------------------------------------------------
+           LOCAL UPLOAD
+           ----------------------------------------------------- */
+
+        if (isUploadedRoute) {
+          if (!isUploadedProject) {
+            setError(
+              "This uploaded project is no longer available. Please upload the folder again."
+            );
+            setLoading(false);
+            return;
+          }
+
+          let filesForProject = routeUploadedFiles;
+
+          if (
+            filesForProject.length === 0 &&
+            location.state?.projectId
+          ) {
+            try {
+              filesForProject = await getProjectFiles(
+                location.state.projectId
+              );
+
+              if (!cancelled) {
+                setResolvedUploadedFiles(filesForProject);
+              }
+            } catch (fileLoadError) {
+              console.error(
+                "Could not restore uploaded project files:",
+                fileLoadError
+              );
+            }
+          }
+
+          if (filesForProject.length === 0) {
+            setError(
+              "This uploaded project's files are not available in this browser. Please upload the folder again."
+            );
+            setLoading(false);
+            return;
+          }
+
+          const localFiles = filesForProject.map(
+            (file) => ({
+              path: (
+                file.webkitRelativePath ||
+                file.name ||
+                ""
+              )
+                .split("/")
+                .slice(1)
+                .join("/"),
+              type: "blob",
+              size: file.size || 0,
+            })
+          ).filter((file) => file.path);
+
+          const readmeFile = filesForProject.find(
+            (file) => {
+              const fileName = (
+                file.name || ""
+              ).toLowerCase();
+
+              return (
+                fileName === "readme.md" ||
+                fileName === "readme.txt"
+              );
+            }
+          );
+
+          if (!cancelled) {
+            setData({
+              repository: {
+                name: uploadedProjectName,
+                full_name: uploadedProjectName,
+                owner: "Local Upload",
+                description:
+                  "Project uploaded from your computer.",
+                private: true,
+                html_url: null,
+                default_branch: null,
+                language: null,
+                stars: 0,
+                forks: 0,
+                open_issues: 0,
+                size:
+                  filesForProject.reduce(
+                    (total, file) =>
+                      total + (file.size || 0),
+                    0
+                  ) / 1024,
+                updated_at: new Date().toISOString(),
+                license: null,
+              },
+              files: localFiles,
+              commits: [],
+              readme: null,
+            });
+
+            setLocalReadmeFile(
+              readmeFile || null
+            );
+
+            if (readmeFile) {
+              const readmePath =
+                (readmeFile.webkitRelativePath ||
+                  readmeFile.name ||
+                  "")
+                  .split("/")
+                  .slice(1)
+                  .join("/");
+
+              setSelectedPath(readmePath);
+            }
+          }
+
+          setLoading(false);
           return;
         }
 
@@ -502,6 +908,11 @@ export default function Repository() {
     navigate,
     repositoryOwner,
     repositoryName,
+    uploadedRouteProjectName,
+    isUploadedRoute,
+    isUploadedProject,
+    uploadedFiles,
+    uploadedProjectName,
   ]);
 
   /* =======================================================
@@ -513,6 +924,16 @@ export default function Repository() {
       data?.files || []
     );
   }, [data]);
+
+  const uploadedFileTree = useMemo(() => {
+    if (!isUploadedProject) {
+      return [];
+    }
+
+    return buildUploadedFileTree(
+      uploadedFiles
+    );
+  }, [isUploadedProject, uploadedFiles]);
 
   /* =======================================================
      OPEN FILE
@@ -584,6 +1005,50 @@ export default function Repository() {
   };
 
   /* =======================================================
+     OPEN UPLOADED FILE
+     ======================================================= */
+
+  const openUploadedFile = async (
+    file
+  ) => {
+    if (!file) {
+      return;
+    }
+
+    const relativePath =
+      (file.webkitRelativePath ||
+        file.name ||
+        "")
+        .split("/")
+        .slice(1)
+        .join("/") ||
+      file.name ||
+      "";
+
+    setSelectedPath(relativePath);
+    setActiveTab("files");
+    setFileLoading(true);
+    setFileError("");
+    setFileContent("");
+
+    try {
+      const content = await file.text();
+      setFileContent(content);
+    } catch (err) {
+      console.error(
+        "Uploaded file reading error:",
+        err
+      );
+
+      setFileError(
+        "Could not read this file."
+      );
+    } finally {
+      setFileLoading(false);
+    }
+  };
+
+  /* =======================================================
      OPEN GITHUB
      ======================================================= */
 
@@ -618,7 +1083,9 @@ export default function Repository() {
             </p>
 
             <p className="mt-1 text-[11px] text-[#646c72]">
-              Fetching real data from GitHub
+              {isUploadedProject
+                ? "Preparing uploaded project"
+                : "Fetching real data from GitHub"}
             </p>
           </div>
         </div>
@@ -712,14 +1179,31 @@ export default function Repository() {
       : [];
 
   const readme =
-    data.readme || null;
+    isUploadedProject
+      ? null
+      : data.readme || null;
 
   const files =
-    Array.isArray(
-      data.files
-    )
-      ? data.files
-      : [];
+    isUploadedProject
+      ? uploadedFiles
+          .map((file) => ({
+            path: (
+              file.webkitRelativePath ||
+              file.name ||
+              ""
+            )
+              .split("/")
+              .slice(1)
+              .join("/"),
+            type: "blob",
+            size: file.size || 0,
+          }))
+          .filter((file) => file.path)
+      : Array.isArray(
+          data.files
+        )
+        ? data.files
+        : [];
 
   /* =======================================================
      PAGE
@@ -807,29 +1291,30 @@ export default function Repository() {
 
           {/* RIGHT */}
 
-          <button
-            type="button"
-            onClick={
-              openGitHub
-            }
-            className="
-              shrink-0
-              whitespace-nowrap
-              rounded-md
-              border
-              border-[#292d30]
-              px-4
-              py-2
-              text-[12px]
-              text-[#aeb4b9]
-              transition
-              hover:bg-[#1c1f21]
-              hover:text-white
-              max-[600px]:px-3
-            "
-          >
-            Open on GitHub ↗
-          </button>
+          {!isUploadedProject &&
+            repository.html_url && (
+              <button
+                type="button"
+                onClick={openGitHub}
+                className="
+                  shrink-0
+                  whitespace-nowrap
+                  rounded-md
+                  border
+                  border-[#292d30]
+                  px-4
+                  py-2
+                  text-[12px]
+                  text-[#aeb4b9]
+                  transition
+                  hover:bg-[#1c1f21]
+                  hover:text-white
+                  max-[600px]:px-3
+                "
+              >
+                Open on GitHub ↗
+              </button>
+            )}
         </div>
       </header>
 
@@ -860,7 +1345,9 @@ export default function Repository() {
 
               <div className="mb-3 flex flex-wrap gap-2">
                 <span className="rounded-full bg-[#17351f] px-2.5 py-1 text-[10px] text-[#49c96d]">
-                  ● Connected
+                  {isUploadedProject
+                    ? "● Local Upload"
+                    : "● Connected"}
                 </span>
 
                 <span className="rounded-full border border-[#292d30] px-2.5 py-1 text-[10px] text-[#9ca3a9]">
@@ -1059,12 +1546,26 @@ export default function Repository() {
                 </h3>
 
                 <p className="mt-1 text-[11px] text-[#747c82]">
-                  Real README content from GitHub
+                  {isUploadedProject
+                    ? "README content from the uploaded project"
+                    : "Real README content from GitHub"}
                 </p>
               </div>
 
               <div className="max-h-[620px] overflow-auto p-5">
-                {readme ? (
+                {isUploadedProject ? (
+                  localReadmeFile ? (
+                    <LocalReadme
+                      file={localReadmeFile}
+                    />
+                  ) : (
+                    <div>
+                      <p className="text-[13px] text-[#858d93]">
+                        This uploaded project does not have a README file.
+                      </p>
+                    </div>
+                  )
+                ) : readme ? (
                   <pre className="whitespace-pre-wrap break-words text-[13px] leading-6 text-[#bfc4c8]">
                     {readme.content}
                   </pre>
@@ -1155,23 +1656,32 @@ export default function Repository() {
                 </h3>
 
                 <p className="mt-1 text-[11px] text-[#747c82]">
-                  {files.length} items from GitHub
+                  {files.length} items from {
+                    isUploadedProject
+                      ? "local upload"
+                      : "GitHub"
+                  }
                 </p>
               </div>
 
               <div className="max-h-[680px] overflow-y-auto p-3">
-                {fileTree.length >
-                0 ? (
+                {isUploadedProject ? (
+                  uploadedFileTree.length > 0 ? (
+                    <UploadedFileTree
+                      items={uploadedFileTree}
+                      onFileClick={openUploadedFile}
+                      selectedPath={selectedPath}
+                    />
+                  ) : (
+                    <p className="px-2 py-3 text-[12px] text-[#777f85]">
+                      No files found in the uploaded folder.
+                    </p>
+                  )
+                ) : fileTree.length > 0 ? (
                   <FileTree
-                    items={
-                      fileTree
-                    }
-                    onFileClick={
-                      openFile
-                    }
-                    selectedPath={
-                      selectedPath
-                    }
+                    items={fileTree}
+                    onFileClick={openFile}
+                    selectedPath={selectedPath}
                   />
                 ) : (
                   <p className="px-2 py-3 text-[12px] text-[#777f85]">
@@ -1194,7 +1704,9 @@ export default function Repository() {
 
                 {selectedPath && (
                   <span className="shrink-0 text-[10px] text-[#697177]">
-                    GitHub
+                    {isUploadedProject
+                      ? "Local Upload"
+                      : "GitHub"}
                   </span>
                 )}
               </div>
@@ -1202,7 +1714,9 @@ export default function Repository() {
               <div className="max-h-[680px] overflow-auto">
                 {fileLoading ? (
                   <div className="p-6 text-[13px] text-[#7b8389]">
-                    Loading file from GitHub...
+                    {isUploadedProject
+                      ? "Reading local file..."
+                      : "Loading file from GitHub..."}
                   </div>
                 ) : fileError ? (
                   <div className="p-6">
@@ -1247,11 +1761,9 @@ export default function Repository() {
               </h3>
 
               <p className="mt-2 text-[13px] leading-6 text-[#838b91]">
-                This repository is connected
-                directly to GitHub. Repository
-                metadata, files, README and
-                commits are being loaded from
-                the connected GitHub account.
+                {isUploadedProject
+                  ? "This project was uploaded from your computer. Its files are available locally for analysis and documentation generation."
+                  : "This repository is connected directly to GitHub. Repository metadata, files, README and commits are loaded from the connected GitHub account."}
               </p>
 
               {/* REAL REPOSITORY INFO */}
@@ -1284,8 +1796,10 @@ export default function Repository() {
                   </p>
 
                   <p className="mt-2 truncate text-[15px] font-medium">
-                    {repository.default_branch ||
-                      "—"}
+                    {isUploadedProject
+                      ? "Local Upload"
+                      : repository.default_branch ||
+                        "—"}
                   </p>
                 </div>
               </div>
@@ -1294,6 +1808,7 @@ export default function Repository() {
 
               <button
                 type="button"
+                onClick={() => navigate("/docpilot")}
                 className="
                   mt-7
                   rounded-[7px]

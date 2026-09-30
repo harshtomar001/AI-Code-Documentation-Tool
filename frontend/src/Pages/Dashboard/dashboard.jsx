@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { getCurrentUser } from "../../api/auth";
-import Sidebar from "./components/Sidebar";
+import { getProjects, createProject as createProjectApi } from "../../api/projects";
+// import Sidebar from "./components/Sidebar";
 import Topbar from "./components/Topbar";
 import ActionCards from "./components/ActionCards";
 import RecentProjects from "./components/RecentProjects";
@@ -11,43 +12,10 @@ import DocumentationChart from "./components/DocumentationChart";
 import Tips from "./components/Tips";
 import Toast from "./components/Toast";
 
-const projectsData = [
-  {
-    id: 1,
-    name: "Student ERP",
-    tags: ["Python", "Web App"],
-    progress: 68,
-  },
-  {
-    id: 2,
-    name: "Weather API",
-    tags: ["JavaScript", "API"],
-    progress: 42,
-  },
-  {
-    id: 3,
-    name: "Portfolio",
-    tags: ["HTML", "CSS"],
-    progress: 100,
-  },
-];
-
 const reviewsData = [
-  {
-    id: 1,
-    title: "Update API endpoints",
-    description: "3 changes • 2 comments",
-  },
-  {
-    id: 2,
-    title: "Student ERP",
-    description: "7 docstrings • 3 comments • 1 README",
-  },
-  {
-    id: 3,
-    title: "Fix authentication flow",
-    description: "5 changes • 4 comments",
-  },
+  { id: 1, title: "Update API endpoints", description: "3 changes • 2 comments" },
+  { id: 2, title: "Student ERP", description: "7 docstrings • 3 comments • 1 README" },
+  { id: 3, title: "Fix authentication flow", description: "5 changes • 4 comments" },
 ];
 
 function getToken() {
@@ -57,24 +25,25 @@ function getToken() {
   );
 }
 
-/* =========================================================
-   GITHUB CALLBACK MESSAGE
-   ========================================================= */
-
 function getGitHubMessage() {
-  const params = new URLSearchParams(window.location.search);
+  const params =
+    new URLSearchParams(
+      window.location.search
+    );
 
-  const githubError = params.get("github_error");
+  const githubError =
+    params.get(
+      "github_error"
+    );
 
   if (githubError) {
-    console.log("GitHub callback error:", githubError);
     return githubError;
   }
 
-  const githubStatus = params.get("github");
-
-  if (githubStatus === "connected") {
-    console.log("GitHub connected successfully");
+  if (
+    params.get("github") ===
+    "connected"
+  ) {
     return "GitHub connected successfully";
   }
 
@@ -84,67 +53,125 @@ function getGitHubMessage() {
 export default function Dashboard() {
   const navigate = useNavigate();
 
-  /* =======================================================
-     USER
-     ======================================================= */
+  const [user, setUser] =
+    useState(null);
 
-  const [user, setUser] = useState(null);
-  const [loadingUser, setLoadingUser] = useState(true);
+  const [loadingUser, setLoadingUser] =
+    useState(true);
 
-  /* =======================================================
-     PROJECTS / REVIEWS
-     ======================================================= */
+  const [projects, setProjects] = useState([]);
+  const [loadingProjects, setLoadingProjects] = useState(true);
 
-  const [projects, setProjects] = useState(projectsData);
-  const [reviews, setReviews] = useState(reviewsData);
+  const [reviews, setReviews] =
+    useState(reviewsData);
 
-  /* =======================================================
-     UI STATE
-     ======================================================= */
+  const [search, setSearch] =
+    useState("");
 
-  const [search, setSearch] = useState("");
-  const [activeMenu, setActiveMenu] = useState("Dashboard");
-  const [darkMode, setDarkMode] = useState(true);
+  const [activeMenu, setActiveMenu] =
+    useState("Dashboard");
 
-  const [showProfile, setShowProfile] = useState(false);
-  const [showNotifications, setShowNotifications] = useState(false);
+  const [darkMode, setDarkMode] =
+    useState(true);
 
-  const [month, setMonth] = useState("This month");
+  const [showProfile, setShowProfile] =
+    useState(false);
 
-  /* =======================================================
-     MESSAGE
-     ======================================================= */
+  const [showNotifications, setShowNotifications] =
+    useState(false);
 
-  const [message, setMessage] = useState(() =>
-    getGitHubMessage()
-  );
+  const [month, setMonth] =
+    useState("This month");
 
-  /* =======================================================
-     NOTIFICATION / TOAST
-     ======================================================= */
+  const [message, setMessage] =
+    useState(getGitHubMessage);
 
-  const notify = (text) => {
-    setMessage(text);
-  };
+  /* =========================================================
+     LOAD PROJECTS FROM BACKEND
+     ========================================================= */
 
-  /* =======================================================
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadProjects = async () => {
+      const token = getToken();
+
+      if (!token) {
+        if (!cancelled) {
+          setProjects([]);
+          setLoadingProjects(false);
+        }
+        return;
+      }
+
+      try {
+        const result = await getProjects(token);
+
+        if (cancelled) return;
+
+        const mappedProjects = (result.projects || []).map((project) => ({
+          ...project,
+          tags: project.language
+            ? [project.language]
+            : project.source_type === "github"
+              ? ["GitHub"]
+              : project.source_type === "upload"
+                ? ["Local Project"]
+                : ["Project"],
+          progress: Number.isFinite(project.documentation_progress)
+            ? project.documentation_progress
+            : 0,
+        }));
+
+        setProjects(mappedProjects);
+      } catch (error) {
+        console.error("Could not load projects:", error);
+
+        if (!cancelled) {
+          setProjects([]);
+        }
+      } finally {
+        if (!cancelled) {
+          setLoadingProjects(false);
+        }
+      }
+    };
+
+    const refreshProjects = () => {
+      loadProjects();
+    };
+
+    loadProjects();
+
+    window.addEventListener("docuai-projects-updated", refreshProjects);
+
+    return () => {
+      cancelled = true;
+      window.removeEventListener("docuai-projects-updated", refreshProjects);
+    };
+  }, []);
+
+  /* =========================================================
      LOAD CURRENT USER
-     ======================================================= */
+     ========================================================= */
 
   useEffect(() => {
     const loadUser = async () => {
       const token = getToken();
 
       if (!token) {
-        navigate("/login", {
-          replace: true,
-        });
-
+        navigate(
+          "/login",
+          { replace: true }
+        );
         return;
       }
 
       try {
-        const data = await getCurrentUser(token);
+        const data =
+          await getCurrentUser(
+            token
+          );
 
         console.log(
           "Authenticated user:",
@@ -166,9 +193,10 @@ export default function Dashboard() {
           "access_token"
         );
 
-        navigate("/login", {
-          replace: true,
-        });
+        navigate(
+          "/login",
+          { replace: true }
+        );
       } finally {
         setLoadingUser(false);
       }
@@ -177,90 +205,121 @@ export default function Dashboard() {
     loadUser();
   }, [navigate]);
 
-  /* =======================================================
-     CLEAN GITHUB QUERY PARAMETERS
-     
-     IMPORTANT:
-     Message is already stored in state above,
-     so removing the query from URL will NOT remove
-     the toast message.
-     ======================================================= */
+  /* =========================================================
+     REMOVE GITHUB QUERY PARAMETERS
+     ========================================================= */
 
   useEffect(() => {
-    const params = new URLSearchParams(
-      window.location.search
-    );
+    const params =
+      new URLSearchParams(
+        window.location.search
+      );
 
-    const hasGitHubMessage =
-      params.has("github_error") ||
-      params.get("github") === "connected";
+    if (
+      params.has(
+        "github_error"
+      ) ||
+      params.has("github")
+    ) {
+      window.history.replaceState(
+        {},
+        document.title,
+        window.location.pathname
+      );
+    }
+  }, []);
 
-    if (!hasGitHubMessage) {
+  /* =========================================================
+     FILTER PROJECTS
+     ========================================================= */
+
+  const filteredProjects =
+    useMemo(() => {
+      if (!search.trim()) {
+        return projects;
+      }
+
+      const value =
+        search.toLowerCase();
+
+      return projects.filter(
+        (project) =>
+          project.name
+            .toLowerCase()
+            .includes(value)
+      );
+    }, [
+      projects,
+      search,
+    ]);
+
+  /* =========================================================
+     CREATE PROJECT
+     ========================================================= */
+
+  const createProject = async () => {
+    const token = getToken();
+
+    if (!token) {
+      notify("Please login first");
+      navigate("/login", { replace: true });
       return;
     }
 
-    window.history.replaceState(
-      {},
-      document.title,
-      window.location.pathname
-    );
-  }, []);
+    try {
+      const saved = await createProjectApi(token, {
+        name: "New Project",
+        description: "",
+        source_type: "manual",
+        github_owner: null,
+        github_repo: null,
+        github_url: null,
+        local_storage_path: null,
+        language: "JavaScript",
+        status: "created",
+        documentation_progress: 0,
+      });
 
-  /* =======================================================
-     FILTER PROJECTS
-     ======================================================= */
+      const mapped = {
+        ...saved,
+        tags: saved.language ? [saved.language] : ["Project"],
+        progress: saved.documentation_progress || 0,
+      };
 
-  const filteredProjects = useMemo(() => {
-    if (!search.trim()) {
-      return projects;
+      setProjects((current) => [mapped, ...current.filter((project) => project.id !== saved.id)]);
+      notify("New project created");
+    } catch (error) {
+      console.error("Could not create project:", error);
+      notify(
+        error.response?.data?.detail ||
+          "Could not create project"
+      );
     }
-
-    const value = search.toLowerCase();
-
-    return projects.filter((project) =>
-      project.name
-        .toLowerCase()
-        .includes(value)
-    );
-  }, [projects, search]);
-
-  /* =======================================================
-     CREATE PROJECT
-     ======================================================= */
-
-  const createProject = () => {
-    const newProject = {
-      id: Date.now(),
-      name: "New Project",
-      tags: ["JavaScript", "Web App"],
-      progress: 0,
-    };
-
-    setProjects((current) => [
-      newProject,
-      ...current,
-    ]);
-
-    notify("New project created");
   };
 
-  /* =======================================================
+  /* =========================================================
      REVIEW PROJECT
-     ======================================================= */
+     ========================================================= */
 
-  const reviewProject = (id) => {
-    setReviews((current) =>
-      current.filter(
-        (review) => review.id !== id
-      )
+  const reviewProject = (
+    id
+  ) => {
+    setReviews(
+      (current) =>
+        current.filter(
+          (review) =>
+            review.id !== id
+        )
     );
 
-    notify("Review completed");
+    notify(
+      "Review completed"
+    );
   };
 
-  /* =======================================================
+  /* =========================================================
      LOGOUT
-     ======================================================= */
+     ========================================================= */
 
   const logout = () => {
     localStorage.removeItem(
@@ -271,38 +330,65 @@ export default function Dashboard() {
       "access_token"
     );
 
-    navigate("/login", {
-      replace: true,
-    });
+    navigate(
+      "/login",
+      { replace: true }
+    );
   };
 
-  /* =======================================================
-     SIDEBAR MENU
-     ======================================================= */
+  /* =========================================================
+     SIDEBAR
+     ========================================================= */
 
-  const selectMenu = (item) => {
+  const selectMenu = (
+    item
+  ) => {
     setActiveMenu(item);
 
-    if (item !== "Dashboard") {
-      notify(`${item} selected`);
+    if (
+      item !==
+      "Dashboard"
+    ) {
+      notify(
+        `${item} selected`
+      );
     }
   };
 
-  /* =======================================================
-     LOADING
-     ======================================================= */
+  /* =========================================================
+     TOAST
+     ========================================================= */
 
-  if (loadingUser || !user) {
+  const notify = (
+    text
+  ) => {
+    setMessage(text);
+  };
+
+  /* =========================================================
+     LOADING
+     ========================================================= */
+
+  if (
+    loadingUser ||
+    !user
+  ) {
     return (
-      <div className="p-10">
+      <div className="min-h-screen bg-[#0d0f10] p-10 text-[#f2f3f4]">
         Loading dashboard...
+        <Toast
+          message={message}
+          darkMode={
+            darkMode
+          }
+        />
       </div>
     );
   }
 
-  /* =======================================================
-     USER INFORMATION
-     ======================================================= */
+  /* =========================================================
+     USER
+     ========================================================= */
 
   const userName =
     user.name || "User";
@@ -310,13 +396,16 @@ export default function Dashboard() {
   const userEmail =
     user.email || "";
 
-  const avatarLetter = userName
-    .charAt(0)
-    .toUpperCase();
+  const avatarLetter =
+    userName
+      .charAt(0)
+      .toUpperCase();
 
   const providers =
     user.providers?.length
-      ? user.providers.join(", ")
+      ? user.providers.join(
+          ", "
+        )
       : "local";
 
   const verificationText =
@@ -324,17 +413,14 @@ export default function Dashboard() {
       ? "Verified"
       : "Not verified";
 
-  /* =======================================================
-     PAGE THEME
-     ======================================================= */
+  /* =========================================================
+     THEME
+     ========================================================= */
 
-  const page = darkMode
-    ? "bg-[#0d0f10] text-[#f2f3f4]"
-    : "bg-[#f4f5f6] text-[#17191c]";
-
-  /* =======================================================
-     DASHBOARD
-     ======================================================= */
+  const page =
+    darkMode
+      ? "bg-[#0d0f10] text-[#f2f3f4]"
+      : "bg-[#f4f5f6] text-[#17191c]";
 
   return (
     <div
@@ -345,65 +431,72 @@ export default function Dashboard() {
         ${page}
       `}
     >
-      {/* =================================================
-          SIDEBAR
-          ================================================= */}
-
-      <Sidebar
-        activeMenu={activeMenu}
-        onMenuChange={selectMenu}
-        darkMode={darkMode}
-      />
-
-      {/* =================================================
-          MAIN
-          ================================================= */}
+      {/* <Sidebar
+        activeMenu={
+          activeMenu
+        }
+        onMenuChange={
+          selectMenu
+        }
+        darkMode={
+          darkMode
+        }
+        onNotify={
+          notify
+        }
+      /> */}
 
       <main
-        className="
-          ml-[250px]
-          min-h-screen
-          w-[calc(100%-250px)]
-          max-[850px]:ml-[210px]
-          max-[850px]:w-[calc(100%-210px)]
-          max-[700px]:ml-0
-          max-[700px]:w-full
-        "
+        className="min-h-screen w-full"
       >
-        {/* =================================================
-            TOPBAR
-            ================================================= */}
-
         <Topbar
           search={search}
-          setSearch={setSearch}
-          darkMode={darkMode}
-          setDarkMode={setDarkMode}
+          setSearch={
+            setSearch
+          }
+          darkMode={
+            darkMode
+          }
+          setDarkMode={
+            setDarkMode
+          }
           showNotifications={
             showNotifications
           }
           setShowNotifications={
             setShowNotifications
           }
-          showProfile={showProfile}
+          showProfile={
+            showProfile
+          }
           setShowProfile={
             setShowProfile
           }
-          userName={userName}
-          avatarLetter={avatarLetter}
-          userEmail={userEmail}
+          userName={
+            userName
+          }
+          avatarLetter={
+            avatarLetter
+          }
+          userEmail={
+            userEmail
+          }
           verificationText={
             verificationText
           }
-          providers={providers}
-          reviewsCount={reviews.length}
-          onNotify={notify}
-          onLogout={logout}
+          providers={
+            providers
+          }
+          reviewsCount={
+            reviews.length
+          }
+          onNotify={
+            notify
+          }
+          onLogout={
+            logout
+          }
         />
-
-        {/* =================================================
-            CONTENT
-            ================================================= */}
 
         <div
           className="
@@ -415,10 +508,6 @@ export default function Dashboard() {
             max-[1100px]:px-[25px]
           "
         >
-          {/* =================================================
-              HEADER
-              ================================================= */}
-
           <section
             className="
               mb-[15px]
@@ -463,7 +552,9 @@ export default function Dashboard() {
 
             <button
               type="button"
-              onClick={createProject}
+              onClick={
+                createProject
+              }
               className="
                 h-[49px]
                 rounded-[7px]
@@ -479,27 +570,11 @@ export default function Dashboard() {
             </button>
           </section>
 
-          {/* =================================================
-              ACTION CARDS
-              ================================================= */}
-
           <ActionCards
-            darkMode={darkMode}
-            onImport={() =>
-              notify(
-                "GitHub import selected"
-              )
-            }
-            onUpload={() =>
-              notify(
-                "Upload project selected"
-              )
+            darkMode={
+              darkMode
             }
           />
-
-          {/* =================================================
-              MAIN GRID
-              ================================================= */}
 
           <section
             className="
@@ -509,25 +584,45 @@ export default function Dashboard() {
               max-[1100px]:grid-cols-1
             "
           >
-            {/* =================================================
-                LEFT COLUMN
-                ================================================= */}
-
             <div className="flex flex-col gap-[17px]">
               <RecentProjects
-                projects={filteredProjects}
+                projects={filteredProjects.slice(0, 3)}
                 darkMode={darkMode}
-                onViewAll={() =>
-                  notify(
-                    "Showing all projects"
-                  )
-                }
+                loading={loadingProjects}
+                
+                onOpenProject={(project) => {
+                  if (project.source_type === "github" && project.github_owner && project.github_repo) {
+                    navigate(
+                      `/repository/${encodeURIComponent(project.github_owner)}/${encodeURIComponent(project.github_repo)}`
+                    );
+                    return;
+                  }
+
+                  navigate(
+                    `/repository/uploaded/${encodeURIComponent(project.name)}`,
+                    {
+                      state: {
+                        source: "saved-upload",
+                        projectId: project.id,
+                        projectName: project.name,
+                        project,
+                      },
+                    }
+                  );
+                }}
+                onViewAll={() => navigate("/projects")}
               />
 
               <ReviewRequired
-                reviews={reviews}
-                darkMode={darkMode}
-                onReview={reviewProject}
+                reviews={
+                  reviews
+                }
+                darkMode={
+                  darkMode
+                }
+                onReview={
+                  reviewProject
+                }
                 onViewAll={() =>
                   notify(
                     "Showing all reviews"
@@ -536,44 +631,50 @@ export default function Dashboard() {
               />
             </div>
 
-            {/* =================================================
-                RIGHT COLUMN
-                ================================================= */}
-
             <div className="flex flex-col gap-[17px]">
               <DocumentationOverview
-                month={month}
-                setMonth={setMonth}
-                reviewsCount={reviews.length}
-                darkMode={darkMode}
+                month={
+                  month
+                }
+                setMonth={
+                  setMonth
+                }
+                reviewsCount={
+                  reviews.length
+                }
+                darkMode={
+                  darkMode
+                }
               />
 
               <DocumentationChart
-                darkMode={darkMode}
+                darkMode={
+                  darkMode
+                }
               />
             </div>
           </section>
 
-          {/* =================================================
-              TIPS
-              ================================================= */}
-
           <Tips
-            darkMode={darkMode}
+            darkMode={
+              darkMode
+            }
             onViewAll={() =>
-              notify("Showing all tips")
+              notify(
+                "Showing all tips"
+              )
             }
           />
         </div>
       </main>
 
-      {/* =====================================================
-          TOAST
-          ===================================================== */}
-
       <Toast
-        message={message}
-        darkMode={darkMode}
+        message={
+          message
+        }
+        darkMode={
+          darkMode
+        }
       />
     </div>
   );

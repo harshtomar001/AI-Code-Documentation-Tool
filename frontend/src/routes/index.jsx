@@ -10,6 +10,8 @@ import Repository from "../Pages/Repository/Repository";
 import Forgot from "../Pages/Login/Forgot";
 import ProtectedRoute from "./ProtectedRoute";
 import DocPilot from "../Pages/DocPilot/DocPilot";
+import Projects from "../Pages/Projects/Projects";
+import DashboardLayout from "../layouts/DashboardLayout";
 function AppRoutes() {
   return (
     <Routes>
@@ -37,17 +39,23 @@ function AppRoutes() {
 
       {/* Protected pages */}
       <Route element={<ProtectedRoute />}>
-        <Route
-          path="/dashboard"
-          element={<Dashboard />}
-        />
-        <Route
-          path="/repository/:owner/:repo"
-          element={<Repository />}
-        />
-        <Route path="/docpilot" element={<DocPilot />} />
+        <Route element={<DashboardLayout />}>
+          <Route
+            path="/dashboard"
+            element={<Dashboard />}
+          />
+          <Route
+            path="/repository/:owner/:repo"
+            element={<Repository />}
+          />
+          <Route
+            path="/repository/uploaded/:projectName"
+            element={<Repository />}
+          />
+          <Route path="/docpilot" element={<DocPilot />} />
+          <Route path="/projects" element={<Projects />} />
+        </Route>
       </Route>
-
     </Routes>
   );
 }
