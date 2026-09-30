@@ -1,8 +1,8 @@
 from fastapi.testclient import TestClient
 
-from backend.main import app
-from backend.routes.jobs.jobs import job_manager
-from backend.services.jobs import BatchResult
+from main import app
+from routes.jobs.jobs import job_manager
+from services.jobs import BatchResult
 
 
 def make_result(job_id: str, batch_id: int) -> BatchResult:

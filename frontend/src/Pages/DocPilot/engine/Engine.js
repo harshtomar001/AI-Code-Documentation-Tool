@@ -1,6 +1,14 @@
 import { REPO, PR_BRANCH, STEP_DEFS, FINDINGS } from '../data/constants.js';
 import { fmtClock, fakeSha, shortPath, fmtN } from '../utils/format.js';
 import { makeBatches, pendingHunks, pendingCount, changesIn } from './helpers.js';
+import {
+  startLocalJob,
+  fetchJob,
+  fetchJobBatches,
+  subscribeToJob,
+} from '../api/docPilotJobs.js';
+
+import { normalizeBatches } from '../utils/batchAdapter.js';
 
 const ENDED = ['done', 'alert', 'skipped'];
 
@@ -28,6 +36,13 @@ export class Engine {
     this.tweens = [];
     this.evId = 0;
     this.toastId = 0;
+    this.realJob = false;
+    this.jobId = null;
+    this.jobStatus = null;
+    this.jobEventSource = null;
+    this.totalBatches = 0;
+    this.repositoryName = null;
+    this.jobError = null;
     this.init();
   }
 
@@ -75,6 +90,216 @@ export class Engine {
     this.confirmRepo = false;
     this.aside = 'Waiting for upload';
     this.modal = { open: false, batch: 0, animate: false };
+  }
+
+
+    /* ---------- real backend job ---------- */
+
+  async startRealJob(file, repositoryName = "repository", token = null) {
+    this.stopRealJob();
+
+    this.realJob = true;
+    this.repositoryName = repositoryName;
+    this.jobError = null;
+    this.jobStatus = "starting";
+    this.batches = [];
+    this.totalBatches = 0;
+    this.events = [];
+    this.steps = Object.fromEntries(
+      STEP_DEFS.map((d) => [
+        d.key,
+        {
+          state: "pending",
+          detail: d.idle,
+          pct: 0,
+          t0: null,
+          t1: null,
+          lines: [],
+        },
+      ]),
+    );
+
+    this.generating = false;
+    this.finished = false;
+    this.aside = "Starting documentation job";
+    this.emit();
+
+    try {
+      const job = await startLocalJob(file, repositoryName, token);
+
+      this.jobId = job.job_id;
+      this.jobStatus = job.status;
+      this.aside = job.message;
+
+      this.subscribeRealJob();
+      this.emit();
+
+      await this.refreshRealJob();
+    } catch (error) {
+      this.jobStatus = "failed";
+      this.jobError =
+        error?.response?.data?.detail ||
+        error?.message ||
+        "Failed to start documentation job";
+      this.aside = this.jobError;
+      this.emit();
+    }
+  }
+
+  subscribeRealJob() {
+    if (!this.jobId) return;
+
+    this.stopRealJobStream();
+
+    this.jobEventSource = subscribeToJob(this.jobId, {
+      onOpen: () => {
+        this.aside = "Connected to job event stream";
+        this.emit();
+      },
+
+      onEvent: ({ eventType, payload }) => {
+        this.handleRealEvent(eventType, payload);
+      },
+
+      onError: () => {
+        if (this.jobStatus === "completed" || this.jobStatus === "failed") {
+          return;
+        }
+
+        this.aside = "Job event stream disconnected";
+        this.emit();
+      },
+    });
+  }
+
+  async refreshRealJob() {
+    if (!this.jobId) return;
+
+    try {
+      const job = await fetchJob(this.jobId);
+
+      this.jobStatus = job.status;
+      this.aside = job.message;
+
+      const results = await fetchJobBatches(this.jobId);
+      this.batches = normalizeBatches(results);
+
+      this.totalBatches = this.batches.length;
+
+      this.syncRealProgress();
+      this.emit();
+    } catch (error) {
+      this.jobError =
+        error?.response?.data?.detail ||
+        error?.message ||
+        "Failed to refresh documentation job";
+      this.emit();
+    }
+  }
+
+  handleRealEvent(eventType, payload) {
+    const event = payload || {};
+
+    const message = event.message || eventType;
+
+    this.events.unshift({
+      id: event.event_id || `${Date.now()}-${eventType}`,
+      time: event.timestamp
+        ? new Date(event.timestamp).toLocaleTimeString()
+        : "",
+      kind: eventType,
+      msg: message,
+    });
+
+    if (event.progress) {
+      const current = event.progress.current ?? 0;
+      const total = event.progress.total ?? this.totalBatches;
+
+      if (total > 0) {
+        this.totalBatches = total;
+      }
+
+      this.syncRealProgress(current);
+    }
+
+    if (eventType === "batch") {
+      this.refreshRealBatches();
+    }
+
+    if (eventType === "done") {
+      this.jobStatus = "completed";
+      this.finished = true;
+      this.generating = false;
+      this.aside = "Finished";
+    }
+
+    this.emit();
+  }
+
+  async refreshRealBatches() {
+    if (!this.jobId) return;
+
+    try {
+      const results = await fetchJobBatches(this.jobId);
+      this.batches = normalizeBatches(results);
+
+      if (results.length > 0) {
+        this.totalBatches = Math.max(
+          this.totalBatches,
+          ...results.map((result) => result.total_batches || 0),
+        );
+      }
+
+      this.syncRealProgress();
+      this.emit();
+    } catch (error) {
+      this.jobError =
+        error?.message || "Failed to load batch results";
+      this.emit();
+    }
+  }
+
+  syncRealProgress(current = null) {
+    const completed = this.batches.length;
+    const total = this.totalBatches || completed;
+
+    if (this.steps?.gen) {
+      this.steps.gen.state =
+        this.jobStatus === "completed" ? "done" : "active";
+
+      this.steps.gen.pct =
+        total > 0
+          ? Math.min(1, (current ?? completed) / total)
+          : 0;
+
+      this.steps.gen.detail =
+        total > 0
+          ? `${completed} of ${total} batches generated`
+          : "Waiting for batches";
+    }
+
+    this.aside =
+      this.jobStatus === "completed"
+        ? "Finished"
+        : `${completed} of ${total || "?"} batches generated`;
+  }
+
+  stopRealJobStream() {
+    if (this.jobEventSource) {
+      this.jobEventSource.close();
+      this.jobEventSource = null;
+    }
+  }
+
+  stopRealJob() {
+    this.stopRealJobStream();
+
+    this.realJob = false;
+    this.jobId = null;
+    this.jobStatus = null;
+    this.totalBatches = 0;
+    this.repositoryName = null;
+    this.jobError = null;
   }
 
   /* ---------- lifecycle ---------- */

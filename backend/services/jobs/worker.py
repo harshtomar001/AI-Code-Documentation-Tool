@@ -12,7 +12,7 @@ from core_ai.ai.provider_factory import ProviderFactory
 from core_ai.ai.service import AIService
 from core_ai.ai.structured_output import StructuredOutputParser
 from core_ai.config import load_environment
-from core_ai.events import JobEvent
+from core_ai.events import EventProgress, JobEvent
 from core_ai.models.results import AIResult
 from core_ai.pipeline import CorePipeline
 
@@ -104,8 +104,10 @@ class JobWorker:
                 stage="batch",
                 type="completed",
                 message=f"Batch {batch_id}/{total_batches} completed",
-                current=batch_id,
-                total=total_batches,
+                progress=EventProgress(
+                    current=batch_id,
+                    total=total_batches,
+                ),
             )
 
         try:
@@ -168,7 +170,7 @@ class JobWorker:
             self.job_manager.update_job(
                 job_id,
                 status="failed",
-                message="Job failed",
+                message=f"Job failed: {exc}",
             )
 
             publisher.emit(
