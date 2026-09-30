@@ -34,7 +34,6 @@ class AuthResponse(BaseModel):
     access_token: str
     token_type: str = "bearer"
 
-
 class ForgotPasswordRequest(BaseModel):
     email: EmailStr
 
@@ -51,7 +50,6 @@ class ResetPasswordRequest(BaseModel):
             raise ValueError("Password must not exceed 72 bytes")
 
         return value
-
 
 class ResendResetOTPRequest(BaseModel):
     email: EmailStr

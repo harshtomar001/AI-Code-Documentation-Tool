@@ -3,8 +3,8 @@ from datetime import datetime, timedelta, timezone
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from backend.database.models import User, OTPVerification
-from backend.schemas.auth.auth import (
+from database.models import User, OTPVerification
+from schemas.auth.auth import (
     RegisterRequest,
     VerifyEmailRequest,
     ResendOTPRequest,
@@ -13,15 +13,15 @@ from backend.schemas.auth.auth import (
     ResendResetOTPRequest,
     ResetPasswordRequest,
 )
-from backend.utils.security import (
+from utils.security import (
     hash_password,
     verify_password,
     hash_otp,
     verify_otp,
 )
-from backend.utils.jwt import create_access_token
-from backend.utils.otp import generate_otp
-from backend.services.email.email_service import send_otp_email
+from utils.jwt import create_access_token
+from utils.otp import generate_otp
+from services.email.email_service import send_otp_email
 
 
 OTP_EXPIRY_MINUTES = 10
@@ -43,7 +43,9 @@ async def register_user(
 ):
     email = str(data.email).strip().lower()
 
-    result = await db.execute(select(User).where(User.email == email))
+    result = await db.execute(
+        select(User).where(User.email == email)
+    )
     existing_user = result.scalar_one_or_none()
 
     if existing_user:
@@ -67,7 +69,8 @@ async def register_user(
         user_id=user.id,
         otp_hash=hash_otp(otp),
         purpose="email_verification",
-        expires_at=datetime.now(timezone.utc) + timedelta(minutes=OTP_EXPIRY_MINUTES),
+        expires_at=datetime.now(timezone.utc)
+        + timedelta(minutes=OTP_EXPIRY_MINUTES),
         attempts=0,
         is_used=False,
     )
@@ -84,7 +87,9 @@ async def register_user(
     except Exception:
         raise ValueError("Could not send verification email")
 
-    return {"message": "Registration successful. OTP sent to your email."}
+    return {
+        "message": "Registration successful. OTP sent to your email."
+    }
 
 
 async def verify_email(
@@ -93,8 +98,12 @@ async def verify_email(
     otp: str,
 ):
     email = str(email).strip().lower()
+    otp = str(otp).strip()
 
-    result = await db.execute(select(User).where(User.email == email))
+    result = await db.execute(
+        select(User).where(User.email == email)
+    )
+
     user = result.scalar_one_or_none()
 
     if not user:
@@ -110,9 +119,12 @@ async def verify_email(
             OTPVerification.purpose == "email_verification",
             OTPVerification.is_used.is_(False),
         )
-        .order_by(OTPVerification.created_at.desc())
+        .order_by(
+            OTPVerification.created_at.desc()
+        )
         .limit(1)
     )
+
     otp_record = result.scalar_one_or_none()
 
     if not otp_record:
@@ -123,14 +135,18 @@ async def verify_email(
     if otp_record.expires_at <= now:
         otp_record.is_used = True
         await db.commit()
-        raise ValueError("OTP has expired")
+        raise ValueError("Invalid or expired OTP")
 
     if otp_record.attempts >= MAX_OTP_ATTEMPTS:
         otp_record.is_used = True
         await db.commit()
         raise ValueError("Too many incorrect OTP attempts")
 
-    if not verify_otp(otp, otp_record.otp_hash):
+    # Check OTP
+    if not verify_otp(
+        otp,
+        otp_record.otp_hash,
+    ):
         otp_record.attempts += 1
 
         if otp_record.attempts >= MAX_OTP_ATTEMPTS:
@@ -139,20 +155,28 @@ async def verify_email(
         await db.commit()
 
         if otp_record.attempts >= MAX_OTP_ATTEMPTS:
-            raise ValueError("Too many incorrect OTP attempts")
+            raise ValueError(
+                "Too many incorrect OTP attempts"
+            )
 
-        raise ValueError("Invalid OTP")
+        raise ValueError("Invalid or expired OTP")
 
+    # OTP correct
     user.is_verified = True
     otp_record.is_used = True
 
     await db.commit()
     await db.refresh(user)
 
-    access_token = _create_access_token(user)
+    # Generate JWT
+    access_token = create_access_token(
+        {
+            "sub": str(user.id),
+            "email": user.email,
+        }
+    )
 
     return user, access_token
-
 
 async def resend_otp(
     db: AsyncSession,
@@ -160,14 +184,18 @@ async def resend_otp(
 ):
     email = str(data.email).strip().lower()
 
-    result = await db.execute(select(User).where(User.email == email))
+    result = await db.execute(
+        select(User).where(User.email == email)
+    )
     user = result.scalar_one_or_none()
 
     if not user:
         raise ValueError("User not found")
 
     if user.is_verified:
-        return {"message": "Email is already verified"}
+        return {
+            "message": "Email is already verified"
+        }
 
     result = await db.execute(
         select(OTPVerification).where(
@@ -187,7 +215,8 @@ async def resend_otp(
         user_id=user.id,
         otp_hash=hash_otp(otp),
         purpose="email_verification",
-        expires_at=datetime.now(timezone.utc) + timedelta(minutes=OTP_EXPIRY_MINUTES),
+        expires_at=datetime.now(timezone.utc)
+        + timedelta(minutes=OTP_EXPIRY_MINUTES),
         attempts=0,
         is_used=False,
     )
@@ -204,7 +233,9 @@ async def resend_otp(
     except Exception:
         raise ValueError("Could not send verification email")
 
-    return {"message": "A new OTP has been sent"}
+    return {
+        "message": "A new OTP has been sent"
+    }
 
 
 async def login_user(
@@ -213,7 +244,9 @@ async def login_user(
 ):
     email = str(data.email).strip().lower()
 
-    result = await db.execute(select(User).where(User.email == email))
+    result = await db.execute(
+        select(User).where(User.email == email)
+    )
     user = result.scalar_one_or_none()
 
     if not user:
@@ -229,7 +262,9 @@ async def login_user(
         )
 
     if not user.is_verified:
-        raise ValueError("Please verify your email before logging in")
+        raise ValueError(
+            "Please verify your email before logging in"
+        )
 
     if not verify_password(data.password, user.password_hash):
         raise ValueError("Invalid email or password")
@@ -246,10 +281,13 @@ async def forgot_password(
     email = str(data.email).strip().lower()
 
     generic_message = (
-        "If an account exists with this email, a password reset OTP has been sent."
+        "If an account exists with this email, "
+        "a password reset OTP has been sent."
     )
 
-    result = await db.execute(select(User).where(User.email == email))
+    result = await db.execute(
+        select(User).where(User.email == email)
+    )
     user = result.scalar_one_or_none()
 
     if not user or not user.password_hash or not user.is_active:
@@ -273,7 +311,8 @@ async def forgot_password(
         user_id=user.id,
         otp_hash=hash_otp(otp),
         purpose="password_reset",
-        expires_at=datetime.now(timezone.utc) + timedelta(minutes=OTP_EXPIRY_MINUTES),
+        expires_at=datetime.now(timezone.utc)
+        + timedelta(minutes=OTP_EXPIRY_MINUTES),
         attempts=0,
         is_used=False,
     )
@@ -300,10 +339,13 @@ async def resend_reset_otp(
     email = str(data.email).strip().lower()
 
     generic_message = (
-        "If an account exists with this email, a new password reset OTP has been sent."
+        "If an account exists with this email, "
+        "a new password reset OTP has been sent."
     )
 
-    result = await db.execute(select(User).where(User.email == email))
+    result = await db.execute(
+        select(User).where(User.email == email)
+    )
     user = result.scalar_one_or_none()
 
     if not user or not user.password_hash or not user.is_active:
@@ -327,7 +369,8 @@ async def resend_reset_otp(
         user_id=user.id,
         otp_hash=hash_otp(otp),
         purpose="password_reset",
-        expires_at=datetime.now(timezone.utc) + timedelta(minutes=OTP_EXPIRY_MINUTES),
+        expires_at=datetime.now(timezone.utc)
+        + timedelta(minutes=OTP_EXPIRY_MINUTES),
         attempts=0,
         is_used=False,
     )
@@ -353,14 +396,18 @@ async def reset_password(
 ):
     email = str(data.email).strip().lower()
 
-    result = await db.execute(select(User).where(User.email == email))
+    result = await db.execute(
+        select(User).where(User.email == email)
+    )
     user = result.scalar_one_or_none()
 
     if not user:
         raise ValueError("Invalid email or OTP")
 
     if not user.password_hash:
-        raise ValueError("Password reset is not available for this account")
+        raise ValueError(
+            "Password reset is not available for this account"
+        )
 
     if not user.is_active:
         raise ValueError("Invalid email or OTP")
@@ -422,4 +469,6 @@ async def reset_password(
 
     await db.commit()
 
-    return {"message": "Password reset successfully"}
+    return {
+        "message": "Password reset successfully"
+    }

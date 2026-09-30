@@ -3,7 +3,7 @@ from datetime import datetime, timedelta, timezone
 from fastapi import HTTPException, status
 from jose import JWTError, jwt
 
-from backend.config.settings import settings
+from config.settings import settings
 
 
 def create_access_token(data: dict) -> str:
@@ -13,17 +13,23 @@ def create_access_token(data: dict) -> str:
         minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES
     )
 
-    to_encode.update({"exp": expire})
+    to_encode.update({
+        "exp": expire
+    })
 
     return jwt.encode(
-        to_encode, settings.JWT_SECRET_KEY, algorithm=settings.JWT_ALGORITHM
+        to_encode,
+        settings.JWT_SECRET_KEY,
+        algorithm=settings.JWT_ALGORITHM
     )
 
 
 def verify_access_token(token: str) -> dict:
     try:
         payload = jwt.decode(
-            token, settings.JWT_SECRET_KEY, algorithms=[settings.JWT_ALGORITHM]
+            token,
+            settings.JWT_SECRET_KEY,
+            algorithms=[settings.JWT_ALGORITHM]
         )
 
         user_id = payload.get("sub")

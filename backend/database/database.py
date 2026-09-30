@@ -5,7 +5,7 @@ from sqlalchemy.ext.asyncio import (
 )
 from sqlalchemy.orm import DeclarativeBase
 
-from backend.config.settings import settings
+from config.settings import settings
 
 
 # Database engine

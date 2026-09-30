@@ -2,7 +2,7 @@ import smtplib
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 
-from backend.config.settings import settings
+from config.settings import settings
 
 
 def send_email(to_email: str, subject: str, body: str):
@@ -13,15 +13,26 @@ def send_email(to_email: str, subject: str, body: str):
 
     message.attach(MIMEText(body, "html"))
 
-    with smtplib.SMTP(settings.SMTP_HOST, settings.SMTP_PORT) as server:
+    with smtplib.SMTP(
+        settings.SMTP_HOST,
+        settings.SMTP_PORT
+    ) as server:
+
         server.starttls()
 
-        server.login(settings.SMTP_USERNAME, settings.SMTP_PASSWORD)
+        server.login(
+            settings.SMTP_USERNAME,
+            settings.SMTP_PASSWORD
+        )
 
         server.send_message(message)
 
 
-def send_otp_email(to_email: str, otp: str, purpose: str):
+def send_otp_email(
+    to_email: str,
+    otp: str,
+    purpose: str
+):
     if purpose == "email_verification":
         subject = "Verify your AI Code Documentation Tool account"
 
@@ -63,4 +74,8 @@ def send_otp_email(to_email: str, otp: str, purpose: str):
     else:
         raise ValueError("Invalid OTP purpose")
 
-    send_email(to_email, subject, body)
+    send_email(
+        to_email,
+        subject,
+        body
+    )
