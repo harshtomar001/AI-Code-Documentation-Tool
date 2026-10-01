@@ -23,7 +23,8 @@ export class Engine {
   constructor() {
     this.listeners = new Set();
     this.version = 0;
-    this._raf = 0;
+    this._emitTimer = 0;
+    this._onVisible = null;
     this._dirty = false;
     this._lastEmit = 0;
     this.loopId = 0;
@@ -51,18 +52,25 @@ export class Engine {
     this.listeners.add(fn);
     return () => this.listeners.delete(fn);
   };
-  getVersion = () => this.version;
+  getSnapshot = () => this.version;
 
+  /**
+   * Notify React. Uses a coalescing setTimeout, NOT requestAnimationFrame:
+   * rAF is paused in hidden/occluded tabs, which left the UI stale until the
+   * user switched back to the window.
+   */
   emit() {
     this._dirty = false;
-    if (this._raf) return;
-    this._raf = requestAnimationFrame(() => {
-      this._raf = 0;
-      this._lastEmit = performance.now();
-      this.syncGen();
-      this.version++;
-      this.listeners.forEach((l) => l());
-    });
+    if (this._emitTimer) return;
+    this._emitTimer = setTimeout(() => this.flush(), 0);
+  }
+  flush() {
+    this._emitTimer = 0;
+    this._dirty = false;
+    this._lastEmit = performance.now();
+    this.syncGen();
+    this.version++;
+    this.listeners.forEach((l) => l());
   }
   /** Cheap, throttled notification for high-frequency changes (progress bars). */
   softEmit() {
@@ -306,16 +314,27 @@ export class Engine {
   start() {
     if (this.loopId) return;
     this.last = performance.now();
-    const frame = (ts) => {
-      this.loopId = requestAnimationFrame(frame);
-      this.frame(ts);
+    // setInterval (not rAF) so the simulation and UI keep updating in background tabs
+    this.loopId = setInterval(() => this.frame(performance.now()), 33);
+    this._onVisible = () => {
+      if (document.visibilityState === 'visible') {
+        this.last = performance.now();
+        this.emit();
+      }
     };
-    this.loopId = requestAnimationFrame(frame);
+    document.addEventListener('visibilitychange', this._onVisible);
     this.restart();
   }
   stop() {
-    cancelAnimationFrame(this.loopId);
+    clearInterval(this.loopId);
     this.loopId = 0;
+    clearTimeout(this._emitTimer);
+    this._emitTimer = 0;
+    if (this._onVisible) {
+      document.removeEventListener('visibilitychange', this._onVisible);
+      this._onVisible = null;
+    }
+    this.stopRealJobStream();
     this.runId++;
     this.timers.forEach(clearTimeout);
     this.timers.clear();
@@ -378,15 +397,20 @@ export class Engine {
 
   /* ---------- derived data ---------- */
   counts() {
-    let queued = 0, generating = 0, ready = 0, done = 0;
-    for (const b of this.batches) {
-      if (b.status === 'queued') queued++;
-      else if (b.status === 'generating') generating++;
-      else if (b.status === 'ready') ready++;
-      else done++;
-    }
-    return { queued, generating, ready, done };
-  }
+  const statuses = this.batches.map((b) => b.status);
+
+  const queued = statuses.filter((s) => s === "queued").length;
+  const generating = statuses.filter((s) => s === "generating").length;
+  const ready = statuses.filter((s) => s === "ready").length;
+  const done = statuses.filter((s) => s === "done").length;
+
+  return {
+    queued,
+    generating,
+    ready,
+    done,
+  };
+}
   tally() {
     let total = 0, committed = 0, skipped = 0;
     for (const b of this.batches)
@@ -509,6 +533,7 @@ export class Engine {
       any = true;
       b.p += dt / b.dur;
       if (b.p >= 1) this.batchReady(b);
+      
     }
     if (any) this.softEmit();
   }
@@ -703,7 +728,7 @@ export class Engine {
       const s = Math.floor(p * 5);
       if (s > seg) {
         seg = s;
-        D.log('scan', `${fmtN(n)} files checked, last: ${D.batches[Math.min(99, Math.floor(p * 100))].files[0].name}`);
+        D.log('scan', `${fmtN(n)} files checked, last: ${D.batches[Math.min(D.batches.length - 1, Math.floor(p * 100))]?.files[0]?.name}`);
       }
     });
     D.setLines('scan', [`${fmtN(REPO.files)} Python files parsed`, 'Secret rules and code parser applied', 'No files skipped']);

@@ -5,8 +5,14 @@ import PipelineStep from './PipelineStep.jsx';
 import './Pipeline.css';
 
 export default function Pipeline() {
+
   const engine = useEngine();
   const [openKeys, setOpenKeys] = useState(() => new Set());
+
+  console.log("Count =>",engine.counts().ready); //
+  var count1 = engine.counts().ready;
+  console.log("Count1 => ",count1);
+
   const toggle = (key) =>
     setOpenKeys((prev) => {
       const next = new Set(prev);
@@ -20,14 +26,20 @@ export default function Pipeline() {
         <h2 id="pipe-h">What happens after you upload</h2>
         <span className="panel__aside">{engine.aside}</span>
       </div>
+
       <ol className="pipeline__list">
         {STEP_DEFS.map((def, i) => (
           <PipelineStep
             key={def.key}
             def={def}
             index={i}
+            count = {count1}
             isLast={i === STEP_DEFS.length - 1}
-            prevState={i > 0 ? engine.steps[STEP_DEFS[i - 1].key].state : null}
+            prevState={
+              i > 0
+                ? engine.steps[STEP_DEFS[i - 1].key].state
+                : null
+            }
             open={openKeys.has(def.key)}
             onToggle={() => toggle(def.key)}
           />

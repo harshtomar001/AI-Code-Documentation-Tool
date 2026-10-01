@@ -1,16 +1,11 @@
-.app {
-  display: grid;
-  grid-template-columns: var(--sidebar-w) minmax(0, 1fr);
+﻿.docpilot-page {
   min-height: 100vh;
-}
-
-.app__main {
   min-width: 0;
   display: flex;
   flex-direction: column;
 }
 
-.app__content {
+.docpilot-content {
   padding: 24px 28px 96px;
   max-width: 1500px;
   width: 100%;
@@ -30,21 +25,13 @@
 }
 
 @media (max-width: 1100px) {
-  .app {
-    grid-template-columns: 68px minmax(0, 1fr);
-  }
-
   .demo-grid {
     grid-template-columns: minmax(0, 1fr);
   }
 }
 
-@media (max-width: 640px) {
-  .app {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
-  .app__content {
+@media (max-width: 700px) {
+  .docpilot-content {
     padding: 16px 14px 96px;
   }
 }

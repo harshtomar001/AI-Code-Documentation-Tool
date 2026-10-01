@@ -1,9 +1,8 @@
-import { useEffect, useState } from "react";
+﻿import { useEffect, useState } from "react";
 
 import { Engine } from "./engine/Engine.js";
 import { EngineContext } from "./engine/EngineContext.js";
 
-import Sidebar from "./components/layout/Sidebar.jsx";
 import Topbar from "./components/layout/Topbar.jsx";
 
 import RepoHeader from "./components/demo/RepoHeader.jsx";
@@ -46,38 +45,34 @@ export default function DocPilot() {
 
   return (
     <EngineContext.Provider value={engine}>
-      <div className="app">
-        <Sidebar />
+      <div className="docpilot-page">
+        <Topbar
+          theme={theme}
+          onToggleTheme={() =>
+            setTheme((t) => (t === "dark" ? "light" : "dark"))
+          }
+        />
 
-        <div className="app__main">
-          <Topbar
-            theme={theme}
-            onToggleTheme={() =>
-              setTheme((t) => (t === "dark" ? "light" : "dark"))
-            }
+        <main className="docpilot-content">
+          <RepoHeader
+            view={view}
+            onViewChange={setView}
           />
 
-          <main className="app__content">
-            <RepoHeader
-              view={view}
-              onViewChange={setView}
-            />
+          {view === "demo" ? (
+            <div className="demo-grid">
+              <Pipeline />
 
-            {view === "demo" ? (
-              <div className="demo-grid">
-                <Pipeline />
-
-                <div className="demo-grid__right">
-                  <EventFeed />
-                  <CommitPanel />
-                  <ProgressCard />
-                </div>
+              <div className="demo-grid__right">
+                <EventFeed />
+                <CommitPanel />
+                <ProgressCard />
               </div>
-            ) : (
-              <ArchitectureView />
-            )}
-          </main>
-        </div>
+            </div>
+          ) : (
+            <ArchitectureView />
+          )}
+        </main>
       </div>
 
       <ReviewModal />
