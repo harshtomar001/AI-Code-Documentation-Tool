@@ -95,11 +95,18 @@ class JobWorker:
 
         def schedule_event(event: JobEvent) -> None:
             """Schedule event delivery on the main event loop."""
-            future = asyncio.run_coroutine_threadsafe(
-                forward(event),
-                loop,
-            )
-            pending_events.append(future)
+            if loop.is_closed() or not loop.is_running():
+                return
+
+            coro = forward(event)
+            try:
+                future = asyncio.run_coroutine_threadsafe(
+                    coro,
+                    loop,
+                )
+                pending_events.append(future)
+            except RuntimeError:
+                coro.close()
 
         publisher.subscribe(schedule_event)
 
@@ -119,20 +126,24 @@ class JobWorker:
                 readme=ai_result.documentation.readme,
             )
 
+            if loop.is_closed() or not loop.is_running():
+                self.job_manager.save_batch_result(result)
+                return
+
             async def persist_batch() -> None:
                 """Persist the batch and notify the frontend after completion."""
 
-                try:
-                    project_uuid = UUID(project_id) if project_id else None
-
-                    async with AsyncSessionLocal() as db:
-                        await save_documentation_batch(
-                            db,
-                            result=result,
-                            project_id=project_uuid,
-                        )
-                except Exception as exc:
-                    logger.warning("Failed to persist documentation batch to database: %s", exc)
+                if project_id:
+                    try:
+                        project_uuid = UUID(project_id)
+                        async with AsyncSessionLocal() as db:
+                            await save_documentation_batch(
+                                db,
+                                result=result,
+                                project_id=project_uuid,
+                            )
+                    except Exception as exc:
+                        logger.warning("Failed to persist documentation batch to database: %s", exc)
 
                 # Keep the in-memory cache for fast access during
                 # the active job.
@@ -160,12 +171,16 @@ class JobWorker:
             # event loop and return immediately.
             #
             # DO NOT call future.result() here.
-            future = asyncio.run_coroutine_threadsafe(
-                persist_batch(),
-                loop,
-            )
-
-            pending_batch_persistence.append(future)
+            coro = persist_batch()
+            try:
+                future = asyncio.run_coroutine_threadsafe(
+                    coro,
+                    loop,
+                )
+                pending_batch_persistence.append(future)
+            except RuntimeError:
+                coro.close()
+                self.job_manager.save_batch_result(result)
 
         try:
             self.job_manager.update_job(
@@ -258,6 +273,14 @@ class JobWorker:
                 message="Core AI documentation job completed",
             )
 
+        except asyncio.CancelledError:
+            self.job_manager.update_job(
+                job_id,
+                status="failed",
+                message="Documentation job was cancelled",
+            )
+            raise
+
         except Exception as exc:
             self.job_manager.update_job(
                 job_id,
@@ -297,7 +320,20 @@ class JobWorker:
         finally:
             publisher.unsubscribe(schedule_event)
 
-            await self.event_broker.close_job(job_id)
+            for future in pending_batch_persistence:
+                if not future.done():
+                    future.cancel()
+
+            for future in pending_events:
+                if not future.done():
+                    future.cancel()
+
+            try:
+                await self.event_broker.close_job(job_id)
+            except Exception:
+                pass
 
             if self.workspace_manager is not None:
                 self.workspace_manager.cleanup(job_id)
+
+            await asyncio.sleep(0)
