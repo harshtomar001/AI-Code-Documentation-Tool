@@ -1,4 +1,4 @@
-﻿.docpilot-page {
+.docpilot-page {
   min-height: 100vh;
   min-width: 0;
   display: flex;
@@ -11,11 +11,21 @@
   width: 100%;
 }
 
+.demo-layout {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
 .demo-grid {
   display: grid;
   grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr);
   gap: 20px;
   align-items: start;
+}
+
+.demo-grid--completed {
+  grid-template-columns: minmax(0, 1.8fr) minmax(0, 1fr);
 }
 
 .demo-grid__right {

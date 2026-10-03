@@ -68,14 +68,16 @@ export default function PipelineStep({
     def.key === 'gen'
       ? step.state !== 'pending'
       : isBatch
-        ? step.state === 'done'
+        ? step.state === 'done' || (engine.realJob && engine.batches.length > 0)
         : step.state === 'done' || step.state === 'alert';
 
   const showBar = step.state === 'active';
   const prevClass = prevState ? `is-${prevState}` : 'is-hidden';
 
   // Only "Creating batches" should have the badge
-  const badge = isBatch ? count : 0;
+  const badge = isBatch
+    ? (engine.realJob ? engine.batches.length : count)
+    : 0;
 
   return (
     <li className="step">

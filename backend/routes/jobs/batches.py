@@ -1,17 +1,40 @@
 """Batch result routes."""
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from database.database import get_db
 from database.models import DocumentationBatch, Project, User
-from routes.auth.auth import get_current_user
-
+from utils.jwt import verify_access_token
 from backend.services.jobs import BatchResult
+
+from .jobs import job_manager
 
 
 router = APIRouter(prefix="/api/jobs", tags=["jobs"])
+
+
+async def get_optional_user(
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+) -> User | None:
+    """Retrieve user if an Authorization Bearer token is provided."""
+    auth_header = request.headers.get("Authorization")
+    if not auth_header or not auth_header.startswith("Bearer "):
+        return None
+    token = auth_header.split(" ", 1)[1]
+    try:
+        payload = verify_access_token(token)
+        user_id = payload.get("sub")
+        if not user_id:
+            return None
+        result = await db.execute(
+            select(User).where(User.id == int(user_id))
+        )
+        return result.scalar_one_or_none()
+    except Exception:
+        return None
 
 
 def serialize_batch(row: DocumentationBatch) -> BatchResult:
@@ -34,26 +57,31 @@ def serialize_batch(row: DocumentationBatch) -> BatchResult:
 )
 async def get_job_batches(
     job_id: str,
-    current_user: User = Depends(get_current_user),
+    user: User | None = Depends(get_optional_user),
     db: AsyncSession = Depends(get_db),
 ) -> list[BatchResult]:
-    """Return all persisted completed batches for a user's project."""
+    """Return all completed batches for a job."""
 
-    result = await db.execute(
+    in_memory = job_manager.get_batch_results(job_id)
+    if in_memory:
+        return in_memory
+
+    query = (
         select(DocumentationBatch)
-        .join(
-            Project,
-            DocumentationBatch.project_id == Project.id,
-        )
-        .where(
-            DocumentationBatch.job_id == job_id,
-            Project.user_id == current_user.id,
-        )
-        .order_by(
-            DocumentationBatch.batch_id.asc(),
-        )
+        .where(DocumentationBatch.job_id == job_id)
+        .order_by(DocumentationBatch.batch_id.asc())
     )
 
+    if user is not None:
+        query = (
+            query.join(
+                Project,
+                DocumentationBatch.project_id == Project.id,
+            )
+            .where(Project.user_id == user.id)
+        )
+
+    result = await db.execute(query)
     rows = result.scalars().all()
 
     return [
@@ -69,24 +97,33 @@ async def get_job_batches(
 async def get_batch_result(
     job_id: str,
     batch_id: int,
-    current_user: User = Depends(get_current_user),
+    user: User | None = Depends(get_optional_user),
     db: AsyncSession = Depends(get_db),
 ) -> BatchResult:
-    """Return one persisted batch result."""
+    """Return one completed batch result."""
 
-    result = await db.execute(
+    in_memory = job_manager.get_batch_result(job_id, batch_id)
+    if in_memory is not None:
+        return in_memory
+
+    query = (
         select(DocumentationBatch)
-        .join(
-            Project,
-            DocumentationBatch.project_id == Project.id,
-        )
         .where(
             DocumentationBatch.job_id == job_id,
             DocumentationBatch.batch_id == batch_id,
-            Project.user_id == current_user.id,
         )
     )
 
+    if user is not None:
+        query = (
+            query.join(
+                Project,
+                DocumentationBatch.project_id == Project.id,
+            )
+            .where(Project.user_id == user.id)
+        )
+
+    result = await db.execute(query)
     row = result.scalar_one_or_none()
 
     if row is None:

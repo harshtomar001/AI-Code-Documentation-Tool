@@ -1,11 +1,18 @@
-﻿import { useEngine } from "../../hooks/useEngine.js";
+import { useNavigate } from "react-router-dom";
+import { useEngine } from "../../hooks/useEngine.js";
 import Icon from "../common/Icon.jsx";
 import Badge from "../common/Badge.jsx";
 import "./Topbar.css";
 
 function Brand() {
+  const navigate = useNavigate();
   return (
-    <div className="brand">
+    <div
+      className="brand"
+      onClick={() => navigate("/dashboard")}
+      style={{ cursor: "pointer" }}
+      title="Return to Dashboard"
+    >
       <span className="brand__mark">
         <Icon name="doc" size={32} stroke={1.8} />
       </span>
@@ -16,6 +23,7 @@ function Brand() {
 
 export default function Topbar({ theme, onToggleTheme }) {
   const engine = useEngine();
+  const navigate = useNavigate();
   const waiting = engine.counts().ready;
   const first = engine.batches.findIndex((b) => b.status === "ready");
 
@@ -67,7 +75,7 @@ export default function Topbar({ theme, onToggleTheme }) {
 
       <button className="user" aria-label="Account menu">
         <span className="user__avatar">A</span>
-        <span className="user__name">Aayushi</span>
+        <span className="user__name"></span>
         <Icon name="chevronDown" size={18} />
       </button>
     </header>

@@ -1,23 +1,23 @@
 /* Design tokens. Dark is the default, orange is the accent. */
 :root {
-  --bg: #0a0a0c;
-  --sidebar: #0d0d10;
-  --panel: #111115;
-  --panel-2: #16161b;
-  --raised: #1e1e25;
-  --line: #26262e;
-  --line-soft: #1c1c22;
+  --bg: #0d0f10;
+  --sidebar: #0d0f10;
+  --panel: #151819;
+  --panel-2: #1c2022;
+  --raised: #23272a;
+  --line: #292d30;
+  --line-soft: #202426;
 
-  --ink: #f4f4f6;
-  --muted: #9a9aa8;
-  --faint: #6c6c7a;
+  --ink: #f2f3f4;
+  --muted: #858d93;
+  --faint: #5a6268;
 
-  --accent: #ff8a1f;
-  --accent-hover: #ff9a3d;
-  --accent-ink: #1b0e00;
-  --accent-soft: rgba(255, 138, 31, 0.14);
-  --accent-line: rgba(255, 138, 31, 0.5);
-  --badge: #ff4d1f;
+  --accent: #ef5148;
+  --accent-hover: #f1645c;
+  --accent-ink: #ffffff;
+  --accent-soft: rgba(239, 81, 72, 0.14);
+  --accent-line: rgba(239, 81, 72, 0.5);
+  --badge: #ef5148;
 
   --green: #3ccf8e;
   --green-soft: rgba(60, 207, 142, 0.14);
@@ -26,10 +26,10 @@
   --blue: #4f7cff;
   --danger: #ff6b5e;
 
-  --code-bg: #0c0c0f;
+  --code-bg: #0d0f10;
   --add-bg: rgba(247, 183, 51, 0.15);
   --add-ink: #ffe6ad;
-  --mod-bg: rgba(255, 138, 31, 0.13);
+  --mod-bg: rgba(239, 81, 72, 0.13);
   --ghost-bg: rgba(255, 255, 255, 0.045);
   --kw: #ff7ab0;
   --str: #f0c36a;

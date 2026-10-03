@@ -5,9 +5,10 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 from uuid import UUID
 
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from database.models import DocumentationBatch, DocumentationRun
+from database.models import DocumentationBatch, DocumentationRun, Project
 
 if TYPE_CHECKING:
     from backend.services.jobs.batch_results import BatchResult
@@ -37,6 +38,15 @@ async def save_documentation_run(
     )
 
     db.add(run)
+
+    project_result = await db.execute(
+        select(Project).where(Project.id == project_id)
+    )
+    project = project_result.scalar_one_or_none()
+    if project:
+        project.status = "completed"
+        project.documentation_progress = 100
+
     await db.commit()
     await db.refresh(run)
 

@@ -34,11 +34,11 @@ class GeminiProvider(AIProvider):
             api_key=api_key,
             http_options=types.HttpOptions(
                 retry_options=types.HttpRetryOptions(
-                    attempts=5,
+                    attempts=2,
                     initial_delay=1.0,
-                    max_delay=8.0,
+                    max_delay=3.0,
                     jitter=0.25,
-                    http_status_codes=[408, 429, 500, 502, 503, 504],
+                    http_status_codes=[408, 500, 502, 503, 504],
                 ),
             ),
         )
@@ -78,7 +78,24 @@ class GeminiProvider(AIProvider):
             raise
 
         except Exception as exc:
+            err_str = str(exc)
+            if (
+                "RESOURCE_EXHAUSTED" in err_str
+                or "429" in err_str
+                or "Quota exceeded" in err_str
+            ):
+                if os.getenv("OPENROUTER_API_KEY"):
+                    try:
+                        from .openrouter_provider import OpenRouterProvider
+
+                        fallback_provider = OpenRouterProvider()
+                        return fallback_provider.generate(prompt)
+                    except Exception as fallback_exc:
+                        raise AIProviderError(
+                            f"Gemini quota exhausted ({err_str[:120]}) and OpenRouter fallback failed: {fallback_exc}"
+                        ) from fallback_exc
+
             raise AIProviderError(
                 f"Gemini provider failed to generate a response "
-                f"using model '{self.model}'"
+                f"using model '{self.model}': {exc}"
             ) from exc

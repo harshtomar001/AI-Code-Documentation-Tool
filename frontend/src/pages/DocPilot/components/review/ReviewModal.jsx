@@ -1,5 +1,5 @@
 import { createPortal } from "react-dom";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { useEngine } from "../../hooks/useEngine.js";
 import { REPO } from "../../data/constants.js";
@@ -14,7 +14,7 @@ import BatchDone from "./BatchDone.jsx";
 
 import "./ReviewModal.css";
 
-/** The review popup: Before/After per file, 10 pages per batch, commit buttons at three levels. */
+/** The review popup: Before/After per file, Documentation Changes, and generated README viewer. */
 export default function ReviewModal() {
   const engine = useEngine();
   const { modal } = engine;
@@ -24,11 +24,17 @@ export default function ReviewModal() {
   const closeRef = useRef(null);
   const bodyRef = useRef(null);
 
-  /*
-   * IMPORTANT:
-   * All hooks must run on every render.
-   * Do not return early before these effects.
-   */
+  const [activeTab, setActiveTab] = useState("changes");
+  const [copiedReadme, setCopiedReadme] = useState(false);
+
+  // If a batch has no code files but has a README, switch to the readme tab
+  useEffect(() => {
+    if (b && b.files && b.files.length === 0 && b.readme) {
+      setActiveTab("readme");
+    } else {
+      setActiveTab("changes");
+    }
+  }, [modal.batch, b?.id]);
 
   useEffect(() => {
     if (!modal.open) return undefined;
@@ -39,21 +45,20 @@ export default function ReviewModal() {
         return;
       }
 
-      if (e.key === "ArrowRight") {
-        const currentBatch = engine.batches[engine.modal.batch];
-
-        if (currentBatch) {
-          engine.gotoPage(currentBatch.page + 1);
+      if (activeTab === "changes") {
+        if (e.key === "ArrowRight") {
+          const currentBatch = engine.batches[engine.modal.batch];
+          if (currentBatch && currentBatch.files?.length > 0) {
+            engine.gotoPage(currentBatch.page + 1);
+          }
+          return;
         }
 
-        return;
-      }
-
-      if (e.key === "ArrowLeft") {
-        const currentBatch = engine.batches[engine.modal.batch];
-
-        if (currentBatch) {
-          engine.gotoPage(currentBatch.page - 1);
+        if (e.key === "ArrowLeft") {
+          const currentBatch = engine.batches[engine.modal.batch];
+          if (currentBatch && currentBatch.files?.length > 0) {
+            engine.gotoPage(currentBatch.page - 1);
+          }
         }
       }
     };
@@ -63,7 +68,7 @@ export default function ReviewModal() {
     return () => {
       window.removeEventListener("keydown", onKey);
     };
-  }, [modal.open, engine]);
+  }, [modal.open, engine, activeTab]);
 
   useEffect(() => {
     if (modal.open) {
@@ -75,22 +80,52 @@ export default function ReviewModal() {
     if (bodyRef.current) {
       bodyRef.current.scrollTop = 0;
     }
-  }, [modal.batch, b?.page]);
+  }, [modal.batch, b?.page, activeTab]);
 
-  /*
-   * The batch may not exist on the first render while the real backend
-   * job is still starting. That is fine; hooks have already executed.
-   */
   if (!b) {
     return null;
   }
 
   const done = b.status === "done";
-  const file = b.files[b.page];
+  const file = b.files?.[b.page];
+  const totalBatches = engine.totalBatches || REPO.batches;
+  const hasFiles = b.files && b.files.length > 0;
+  const hasReadme = Boolean(b.readme);
 
-  if (!file && !done) {
-    return null;
+  const pending = pendingCount(b);
+  const totalChanges = changesIn(b);
+
+  let reviewStatusLabel = "Ready for review";
+  let reviewStatusClass = "ready";
+  if (done || (totalChanges > 0 && pending === 0)) {
+    reviewStatusLabel = "Reviewed";
+    reviewStatusClass = "done";
+  } else if (pending < totalChanges && pending > 0) {
+    reviewStatusLabel = "Partially reviewed";
+    reviewStatusClass = "partial";
+  } else if (b.status === "generating") {
+    reviewStatusLabel = "Generated";
+    reviewStatusClass = "generating";
+  } else {
+    reviewStatusLabel = "Ready for review";
+    reviewStatusClass = "ready";
   }
+
+  const handleSelectHunk = (hi) => {
+    const el = document.getElementById(`hunk-${b.id}-${b.page}-${hi}`);
+    if (el) {
+      el.scrollIntoView({ behavior: "smooth", block: "center" });
+      el.classList.add("is-flash");
+      setTimeout(() => el.classList.remove("is-flash"), 1200);
+    }
+  };
+
+  const handleCopyReadme = () => {
+    if (!b.readme) return;
+    navigator.clipboard.writeText(b.readme);
+    setCopiedReadme(true);
+    setTimeout(() => setCopiedReadme(false), 2000);
+  };
 
   const modalContent = (
     <div
@@ -107,29 +142,91 @@ export default function ReviewModal() {
     >
       <div className={`modal__card ${done ? "is-done" : ""}`}>
         <div className="modal__head">
-          <div>
-            <h3 id="review-title">
-              Review changes for batch <b>{b.id}</b>{" "}
-              <span>of {REPO.batches}</span>
-            </h3>
+          <div className="modal__head-info">
+            <div className="modal__title-row">
+              <h3 id="review-title">
+                Review changes for batch <b>{b.id}</b>{" "}
+                <span>of {totalBatches}</span>
+              </h3>
+              <span className={`chip chip--review-status chip--${reviewStatusClass}`}>
+                {reviewStatusLabel}
+              </span>
+            </div>
 
             <p>
-              {b.files.length} files, {changesIn(b)} changes,{" "}
-              {pendingCount(b)} still to commit. Nothing reaches your
-              repository until you commit it.
+              {b.files?.length || 0} files, {changesIn(b)} changes,{" "}
+              {pendingCount(b)} still to commit.{" "}
+              {hasReadme ? "README generated." : "No README generated."}
             </p>
           </div>
 
-          <button
-            ref={closeRef}
-            className="icon-btn"
-            onClick={() => engine.closeModal()}
-            aria-label="Minimize review window"
-            title="Minimize (Esc). Progress is kept."
-          >
-            <Icon name="minus" size={16} stroke={2.4} />
-          </button>
+          <div className="modal__head-actions">
+            {engine.batches.length > 1 && (
+              <div className="modal__batch-nav" role="group" aria-label="Switch batch">
+                <button
+                  type="button"
+                  className="btn btn--xs btn--outline"
+                  disabled={modal.batch === 0}
+                  onClick={() => engine.openModal(modal.batch - 1)}
+                  title="Previous batch"
+                >
+                  ◀ Batch {modal.batch}
+                </button>
+                <span className="modal__batch-counter">
+                  Batch {modal.batch + 1} / {engine.batches.length}
+                </span>
+                <button
+                  type="button"
+                  className="btn btn--xs btn--outline"
+                  disabled={modal.batch >= engine.batches.length - 1}
+                  onClick={() => engine.openModal(modal.batch + 1)}
+                  title="Next batch"
+                >
+                  Batch {modal.batch + 2} ▶
+                </button>
+              </div>
+            )}
+
+            <button
+              ref={closeRef}
+              className="icon-btn"
+              onClick={() => engine.closeModal()}
+              aria-label="Minimize review window"
+              title="Minimize (Esc). Progress is kept."
+            >
+              <Icon name="minus" size={16} stroke={2.4} />
+            </button>
+          </div>
         </div>
+
+        {/* Modal Navigation Tabs */}
+        {!done && (
+          <div className="modal__tabs">
+            <button
+              type="button"
+              className={`modal__tab ${activeTab === "changes" ? "is-active" : ""}`}
+              onClick={() => setActiveTab("changes")}
+            >
+              <span>Documentation Changes</span>
+              <span className="modal__tab-badge">{changesIn(b)}</span>
+            </button>
+
+            <button
+              type="button"
+              className={`modal__tab ${activeTab === "readme" ? "is-active" : ""}`}
+              onClick={() => setActiveTab("readme")}
+            >
+              <span>README</span>
+              <span
+                className={`modal__tab-badge ${
+                  hasReadme ? "modal__tab-badge--success" : ""
+                }`}
+              >
+                {hasReadme ? "Generated" : "None"}
+              </span>
+            </button>
+          </div>
+        )}
 
         <BackgroundStrip />
 
@@ -140,27 +237,94 @@ export default function ReviewModal() {
           >
             <BatchDone batch={b} />
           </div>
-        ) : (
-          <>
-            <FilePager batch={b} file={file} />
-
-            <div
-              className={`modal__body ${
-                modal.animate ? "animate" : ""
-              }`}
-              ref={bodyRef}
-            >
-              {file.hunks.map((_, hi) => (
-                <HunkDiff
-                  key={`${b.id}-${b.page}-${hi}`}
-                  batch={b}
-                  fi={b.page}
-                  hi={hi}
-                />
-              ))}
+        ) : activeTab === "readme" ? (
+          <div className="modal__readme-wrapper" ref={bodyRef}>
+            <div className="modal__readme-toolbar">
+              <span className="modal__readme-title">
+                {hasReadme
+                  ? `Generated README.md (Batch #${b.id})`
+                  : "Batch README"}
+              </span>
+              {hasReadme && (
+                <button
+                  type="button"
+                  className="btn btn--sm btn--outline"
+                  onClick={handleCopyReadme}
+                >
+                  {copiedReadme ? "Copied!" : "Copy README Markdown"}
+                </button>
+              )}
             </div>
 
-            <ReviewFooter batch={b} />
+            {hasReadme ? (
+              <div className="modal__readme-body">
+                <pre>{b.readme}</pre>
+              </div>
+            ) : (
+              <div className="modal__empty-state">
+                <h4>No README Generated</h4>
+                <p>No README was generated for this batch.</p>
+                {hasFiles && (
+                  <button
+                    type="button"
+                    className="btn btn--sm btn--accent"
+                    onClick={() => setActiveTab("changes")}
+                  >
+                    View Code Changes ({changesIn(b)})
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+        ) : (
+          <>
+            {hasFiles ? (
+              <>
+                {file && (
+                  <FilePager
+                    batch={b}
+                    file={file}
+                    onSelectHunk={handleSelectHunk}
+                  />
+                )}
+
+                <div
+                  className={`modal__body ${
+                    modal.animate ? "animate" : ""
+                  }`}
+                  ref={bodyRef}
+                >
+                  {file?.hunks?.map((_, hi) => (
+                    <HunkDiff
+                      key={`${b.id}-${b.page}-${hi}`}
+                      batch={b}
+                      fi={b.page}
+                      hi={hi}
+                    />
+                  ))}
+                </div>
+
+                <ReviewFooter batch={b} />
+              </>
+            ) : (
+              <div className="modal__empty-state" ref={bodyRef}>
+                <h4>No Code File Changes</h4>
+                <p>
+                  No source code files required documentation changes in this
+                  batch. All generated documentation was compiled into the
+                  README.
+                </p>
+                {hasReadme && (
+                  <button
+                    type="button"
+                    className="btn btn--sm btn--accent"
+                    onClick={() => setActiveTab("readme")}
+                  >
+                    View Generated README
+                  </button>
+                )}
+              </div>
+            )}
           </>
         )}
       </div>

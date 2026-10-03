@@ -156,3 +156,9 @@ coverage/
 # OS generated
 # -------------------------
 $RECYCLE.BIN/
+
+# -------------------------
+# Project storage & local backups
+# -------------------------
+.project_storage/
+_docpilot_ui_backup_*/

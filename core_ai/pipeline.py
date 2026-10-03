@@ -1,4 +1,4 @@
-﻿"""Core AI analysis pipeline.
+"""Core AI analysis pipeline.
 
 This module orchestrates the complete code documentation analysis workflow:
 
@@ -119,15 +119,15 @@ class CorePipeline:
             # M2: Analyze source code
 
             self._emit(
-                stage="server",
-                event_type="info",
-                message="Analyzing source code with AST",
+                stage="ast",
+                event_type="started",
+                message="AST analysis started",
             )
 
             analysis = self.ast_analyzer.analyze(files)
 
             self._emit(
-                stage="server",
+                stage="ast",
                 event_type="completed",
                 message="AST analysis completed",
             )
@@ -262,6 +262,14 @@ class CorePipeline:
                 batch_results: list[AIResult] = []
 
                 for batch in batches:
+                    self._emit(
+                        stage="batch",
+                        event_type="started",
+                        message=f"Batch {batch.batch_id} started",
+                        current=batch.batch_id,
+                        total=len(batches),
+                    )
+
                     batch_result = self.ai_service.generate_batch_result(
                         ai_input,
                         batch.files,
@@ -311,7 +319,7 @@ class CorePipeline:
                 self._emit(
                     stage="generation",
                     event_type="completed",
-                    message="AI documentation generation completed",
+                    message="Documentation completed",
                     current=len(batches),
                     total=len(batches),
                 )

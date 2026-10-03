@@ -10,6 +10,7 @@ EventStage = Literal[
     "upload",
     "server",
     "scan",
+    "ast",
     "security",
     "redaction",
     "batching",

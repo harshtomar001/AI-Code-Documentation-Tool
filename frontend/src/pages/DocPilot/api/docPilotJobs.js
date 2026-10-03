@@ -5,7 +5,10 @@ import {
   getJobBatches,
   getBatchResult,
   uploadRepository,
+  downloadJobArchive,
 } from "../../../api/jobs.js";
+
+export { downloadJobArchive };
 
 /**
  * Start a documentation job from a local ZIP repository.
@@ -63,13 +66,20 @@ export function subscribeToJob(jobId, handlers = {}) {
     "upload",
     "server",
     "scan",
+    "ast",
     "secret",
+    "security",
     "secure",
+    "redaction",
     "batch",
+    "batching",
     "gen",
+    "generation",
+    "job",
     "ready",
     "commit",
     "done",
+    "error",
   ];
 
   for (const eventType of eventTypes) {
@@ -89,6 +99,22 @@ export function subscribeToJob(jobId, handlers = {}) {
       });
     });
   }
+
+  source.onmessage = (event) => {
+    let payload = event.data;
+
+    try {
+      payload = JSON.parse(event.data);
+    } catch {
+      // Keep the original string when the server sends non-JSON data.
+    }
+
+    handlers.onEvent?.({
+      eventType: payload?.stage || "message",
+      event,
+      payload,
+    });
+  };
 
   source.onerror = (error) => {
     handlers.onError?.(error);

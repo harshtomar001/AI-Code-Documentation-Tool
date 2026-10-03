@@ -9,12 +9,10 @@ import api from "./client";
  * We preserve webkitRelativePath so the backend can reconstruct
  * the original repository structure.
  */
-export async function saveProjectFiles(projectId, files) {
+export async function saveProjectFiles(projectId, files, onUploadProgress) {
   if (!projectId) {
     throw new Error("Project ID is required.");
   }
-
-  console.log("inside SAVE PROJECT FILES");
 
   if (!files || files.length === 0) {
     return {
@@ -36,19 +34,23 @@ export async function saveProjectFiles(projectId, files) {
     );
   }
 
-  console.log("inside SAVE PROJECT FILES  after formData()");
-
   try {
-      console.log("before the post api of the files")
+    const response = await api.post(
+      `/api/projects/${encodeURIComponent(projectId)}/files`,
+      formData,
+      {
+        onUploadProgress: (progressEvent) => {
+          if (onUploadProgress && progressEvent.total) {
+            const percentCompleted = Math.round(
+              (progressEvent.loaded * 100) / progressEvent.total
+            );
+            onUploadProgress(percentCompleted);
+          }
+        },
+      }
+    );
 
-      const response = await api.post(
-        `/api/projects/${encodeURIComponent(projectId)}/files`,
-        formData
-      );
-      console.log("after the post  api of the files");
-      console.log("SAVE PROJECT FILES RESPONSE:", response.data);
-
-      return response.data;
+    return response.data;
   } catch (error) {
       console.error(
         "SAVE PROJECT FILES ERROR:",

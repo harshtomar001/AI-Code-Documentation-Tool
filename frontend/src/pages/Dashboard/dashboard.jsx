@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { getCurrentUser } from "../../api/auth";
 import {getProjects, createProject as createProjectApi, deleteProject} from "../../api/projects";
 import { getDocumentationRuns } from "../../api/dashboard";
-import Topbar from "./components/Topbar";
+import AppTopBar from "../common/AppTopBar.jsx";
 import ActionCards from "./components/ActionCards";
 import RecentProjects from "./components/RecentProjects";
 import ReviewRequired from "./components/ReviewRequired";
@@ -148,11 +148,12 @@ export default function Dashboard() {
     //  handle clicks of the recent project
 
     const handleViewDocumentation = (project) => {
-      navigate(`/projects/${project.id}/documentation`);
+      const jobId = project?.latest_job_id;
+      navigate(`/docpilot?projectId=${encodeURIComponent(project.id)}${jobId ? `&jobId=${encodeURIComponent(jobId)}` : ""}`);
     };
 
     const handleGenerateDocumentation = (project) => {
-      navigate(`/projects/${project.id}/generate`);
+      navigate(`/docpilot?projectId=${encodeURIComponent(project.id)}&start=true`);
     };
 
     const handleProjectSettings = (project) => {
@@ -586,25 +587,12 @@ export default function Dashboard() {
         ${page}
       `}
     >
-      {/* <Sidebar
-        activeMenu={
-          activeMenu
-        }
-        onMenuChange={
-          selectMenu
-        }
-        darkMode={
-          darkMode
-        }
-        onNotify={
-          notify
-        }
-      /> */}
+
 
       <main
         className="min-h-screen w-full"
       >
-        <Topbar
+        <AppTopBar
           search={search}
           setSearch={
             setSearch

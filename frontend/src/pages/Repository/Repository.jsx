@@ -1,6 +1,7 @@
 import {
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 
@@ -19,7 +20,9 @@ import {
   getProject,
   getProjectFiles,
   getProjectFileContent,
+  saveProjectFiles,
 } from "../../api/projectStore";
+import { formatApiError } from "../../api/client";
 import {getToken} from "../../utils/getToken.js";
 import {formatDate} from "../../utils/formatDate.js";
 import {formatFileSize} from "../../utils/formatFileSize.js";
@@ -667,6 +670,169 @@ function LocalReadme({
 }
 
 /* =========================================================
+   PROJECT FILE UPLOAD COMPONENT
+   ========================================================= */
+
+function ProjectFileUpload({ projectId, onUploadSuccess }) {
+  const [selectedFiles, setSelectedFiles] = useState([]);
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [uploadError, setUploadError] = useState("");
+  const folderInputRef = useRef(null);
+  const fileInputRef = useRef(null);
+
+  const handleFolderChange = (e) => {
+    const list = Array.from(e.target.files || []);
+    setSelectedFiles(list);
+    setUploadError("");
+  };
+
+  const handleFilesChange = (e) => {
+    const list = Array.from(e.target.files || []);
+    setSelectedFiles(list);
+    setUploadError("");
+  };
+
+  const handleStartUpload = async () => {
+    if (!selectedFiles.length || !projectId) return;
+
+    try {
+      setIsUploading(true);
+      setUploadError("");
+      setUploadProgress(0);
+
+      const res = await saveProjectFiles(
+        projectId,
+        selectedFiles,
+        (percent) => setUploadProgress(percent)
+      );
+
+      setSelectedFiles([]);
+      if (folderInputRef.current) folderInputRef.current.value = "";
+      if (fileInputRef.current) fileInputRef.current.value = "";
+
+      if (onUploadSuccess) {
+        await onUploadSuccess(res);
+      }
+    } catch (err) {
+      console.error("Upload error:", err);
+      setUploadError(
+        formatApiError(err) || "Failed to upload project files. Please try again."
+      );
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  const totalSize = selectedFiles.reduce((acc, f) => acc + (f.size || 0), 0);
+
+  return (
+    <div className="rounded-[9px] border border-[#292d30] bg-[#151819] p-6">
+      <div className="border-b border-[#292d30] pb-4">
+        <h4 className="text-[16px] font-medium text-white">Upload Repository Files</h4>
+        <p className="mt-1 text-[12px] text-[#7d868d]">
+          Upload your project folder or source code files to store them on the server for Core AI analysis and documentation generation.
+        </p>
+      </div>
+
+      <input
+        type="file"
+        ref={folderInputRef}
+        webkitdirectory=""
+        directory=""
+        multiple
+        onChange={handleFolderChange}
+        className="hidden"
+      />
+      <input
+        type="file"
+        ref={fileInputRef}
+        multiple
+        onChange={handleFilesChange}
+        className="hidden"
+      />
+
+      <div className="mt-5 flex flex-wrap items-center gap-3">
+        <button
+          type="button"
+          disabled={isUploading}
+          onClick={() => folderInputRef.current?.click()}
+          className="rounded-[7px] border border-[#373d42] bg-[#1c2023] px-4 py-2.5 text-[13px] font-medium text-white transition hover:bg-[#252b30] hover:border-[#4d555c]"
+        >
+          📁 Select Project Folder
+        </button>
+
+        <button
+          type="button"
+          disabled={isUploading}
+          onClick={() => fileInputRef.current?.click()}
+          className="rounded-[7px] border border-[#373d42] bg-[#1c2023] px-4 py-2.5 text-[13px] font-medium text-white transition hover:bg-[#252b30] hover:border-[#4d555c]"
+        >
+          📄 Select Individual Files
+        </button>
+
+        {selectedFiles.length > 0 && (
+          <button
+            type="button"
+            disabled={isUploading}
+            onClick={handleStartUpload}
+            className="rounded-[7px] bg-[#ef5148] px-5 py-2.5 text-[13px] font-medium text-white transition hover:bg-[#f25a51] disabled:opacity-50"
+          >
+            {isUploading
+              ? `Uploading (${uploadProgress}%)...`
+              : `Upload ${selectedFiles.length} File${selectedFiles.length === 1 ? "" : "s"}`}
+          </button>
+        )}
+      </div>
+
+      {selectedFiles.length > 0 && (
+        <div className="mt-4 rounded-md border border-[#2b3034] bg-[#101213] p-4 text-[12px] text-[#9ba2a8]">
+          <div className="flex items-center justify-between pb-2 border-b border-[#232729]">
+            <span className="font-semibold text-white">
+              {selectedFiles.length} files selected
+            </span>
+            <span className="text-[#7d868d]">{formatFileSize(totalSize)}</span>
+          </div>
+          <ul className="mt-2 max-h-36 overflow-y-auto space-y-1 font-mono text-[11px] text-[#7d868d]">
+            {selectedFiles.slice(0, 8).map((f, i) => (
+              <li key={i} className="truncate">
+                {f.webkitRelativePath || f.name}
+              </li>
+            ))}
+            {selectedFiles.length > 8 && (
+              <li className="italic text-[#5e666c]">
+                ...and {selectedFiles.length - 8} more files
+              </li>
+            )}
+          </ul>
+        </div>
+      )}
+
+      {isUploading && (
+        <div className="mt-5">
+          <div className="flex justify-between text-[12px] text-[#8e969d] mb-1.5 font-medium">
+            <span>Uploading files to backend storage...</span>
+            <span className="text-[#ef5148]">{uploadProgress}%</span>
+          </div>
+          <div className="h-2 w-full rounded-full bg-[#202427] overflow-hidden">
+            <div
+              className="h-full bg-[#ef5148] transition-all duration-200"
+              style={{ width: `${uploadProgress}%` }}
+            />
+          </div>
+        </div>
+      )}
+
+      {uploadError && (
+        <div className="mt-4 rounded-md border border-[#522220] bg-[#2a1413] p-3 text-[12px] text-[#ef756d]">
+          {uploadError}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* =========================================================
    REPOSITORY PAGE
    ========================================================= */
 
@@ -813,10 +979,32 @@ export default function Repository() {
 
          const filesForProject = await getProjectFiles(uploadedRouteProjectId);
 
-         console.log("BACKEND FILES FOR PROJECT:", filesForProject);
-
          if (!filesForProject.length) {
-              throw new Error("This uploaded project has no files.");
+           setData({
+             repository: {
+               name: project.name,
+               full_name: project.name,
+               description:
+                 project.description ||
+                 "Project uploaded from your computer.",
+               html_url: null,
+               language: project.language || "Unknown",
+               stars: 0,
+               forks: 0,
+               open_issues: 0,
+               size: 0,
+               default_branch: null,
+               updated_at: project.updated_at,
+             },
+             files: [],
+             commits: [],
+             readme: null,
+             project,
+           });
+           setResolvedUploadedFiles([]);
+           setLocalReadmeFile(null);
+           setLoading(false);
+           return;
          }
 
          setResolvedUploadedFiles(filesForProject);
@@ -1156,6 +1344,74 @@ export default function Repository() {
     };
 
   /* =======================================================
+     HANDLE UPLOAD SUCCESS
+     ======================================================= */
+
+  const handleUploadSuccess = async () => {
+    if (!uploadedRouteProjectId) return;
+    try {
+      setLoading(true);
+      const updatedFiles = await getProjectFiles(uploadedRouteProjectId);
+      const updatedProject = await getProject(uploadedRouteProjectId);
+
+      setResolvedUploadedFiles(updatedFiles);
+
+      let repoSize = 0;
+      const localFiles = updatedFiles
+        .map((file) => {
+          repoSize += file.size || 0;
+          const path = getUploadedFilePath(file);
+          if (!path) return null;
+          return {
+            path,
+            type: "blob",
+            size: file.size || 0,
+            file: file.path ? null : file,
+          };
+        })
+        .filter(Boolean);
+
+      const readmeFile = updatedFiles.find((file) => {
+        const path = getUploadedFilePath(file);
+        const fileName =
+          path.split("/").filter(Boolean).pop()?.toLowerCase() || "";
+        return fileName === "readme.md" || fileName === "readme.txt";
+      });
+
+      setData({
+        repository: {
+          name: updatedProject.name,
+          full_name: updatedProject.name,
+          description:
+            updatedProject.description ||
+            "Project uploaded from your computer.",
+          html_url: null,
+          language: updatedProject.language || "Unknown",
+          stars: 0,
+          forks: 0,
+          open_issues: 0,
+          size: repoSize,
+          default_branch: null,
+          updated_at: updatedProject.updated_at,
+        },
+        files: localFiles,
+        commits: [],
+        readme: null,
+        project: updatedProject,
+      });
+
+      setLocalReadmeFile(readmeFile || null);
+      if (readmeFile) {
+        setSelectedPath(getUploadedFilePath(readmeFile));
+      }
+    } catch (err) {
+      console.error("Failed to refresh project files after upload:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  /* =======================================================
      OPEN GITHUB
      ======================================================= */
 
@@ -1261,6 +1517,7 @@ export default function Repository() {
      ======================================================= */
 
   const repository = data.repository || {};
+  const project = data?.project || null;
 
   const commits = Array.isArray(data.commits) ? data.commits : [];
 
@@ -1496,28 +1753,99 @@ export default function Repository() {
 
             {/* DOCUMENTATION BUTTON */}
 
-            <button
-              type="button"
-              onClick={() =>
-                setActiveTab(
-                  "documentation"
-                )
-              }
-              className="
-                shrink-0
-                rounded-[7px]
-                bg-[#ef5148]
-                px-5
-                py-3
-                text-[13px]
-                font-medium
-                text-white
-                transition
-                hover:bg-[#f25a51]
-              "
-            >
-              Generate Documentation
-            </button>
+            {project?.latest_job_id ? (
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    navigate(
+                      `/docpilot?projectId=${encodeURIComponent(
+                        uploadedRouteProjectId || project.id
+                      )}&jobId=${encodeURIComponent(project.latest_job_id)}`
+                    );
+                  }}
+                  className="
+                    shrink-0
+                    rounded-[7px]
+                    bg-[#ef5148]
+                    px-5
+                    py-3
+                    text-[13px]
+                    font-medium
+                    text-white
+                    transition
+                    hover:bg-[#f25a51]
+                  "
+                >
+                  View Documentation
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    navigate(
+                      `/docpilot?projectId=${encodeURIComponent(
+                        uploadedRouteProjectId || project.id
+                      )}&start=true`
+                    );
+                  }}
+                  className="
+                    shrink-0
+                    rounded-[7px]
+                    border
+                    border-[#292d30]
+                    bg-[#181a1c]
+                    px-4
+                    py-3
+                    text-[13px]
+                    font-medium
+                    text-[#c4c9cd]
+                    transition
+                    hover:bg-[#222528]
+                    hover:text-white
+                  "
+                  title="Run documentation generator again"
+                >
+                  Restart Run
+                </button>
+              </div>
+            ) : (
+              <button
+                type="button"
+                disabled={isUploadedProject && files.length === 0}
+                onClick={() => {
+                  if (isUploadedProject && files.length === 0) return;
+                  if (isUploadedProject) {
+                    navigate(
+                      `/docpilot?projectId=${encodeURIComponent(
+                        uploadedRouteProjectId || project?.id
+                      )}&start=true`
+                    );
+                  } else {
+                    setActiveTab("documentation");
+                  }
+                }}
+                className={`
+                  shrink-0
+                  rounded-[7px]
+                  px-5
+                  py-3
+                  text-[13px]
+                  font-medium
+                  text-white
+                  transition
+                  ${
+                    isUploadedProject && files.length === 0
+                      ? "bg-[#25282a] text-[#61686e] cursor-not-allowed"
+                      : "bg-[#ef5148] hover:bg-[#f25a51]"
+                  }
+                `}
+              >
+                {isUploadedProject && files.length === 0
+                  ? "Upload Files First"
+                  : "Generate Documentation"}
+              </button>
+            )}
           </div>
         </section>
 
@@ -1626,8 +1954,15 @@ export default function Repository() {
             OVERVIEW
             =================================================== */}
 
-        {activeTab ===
-          "overview" && (
+        {activeTab === "overview" && (
+          isUploadedProject && files.length === 0 ? (
+            <div className="space-y-6">
+              <ProjectFileUpload
+                projectId={uploadedRouteProjectId}
+                onUploadSuccess={handleUploadSuccess}
+              />
+            </div>
+          ) : (
           <div className="grid grid-cols-[1.55fr_1fr] gap-5 max-[1050px]:grid-cols-1">
             {/* README */}
 
@@ -1741,14 +2076,22 @@ export default function Repository() {
               </div>
             </section>
           </div>
+          )
         )}
 
         {/* ===================================================
             FILES
             =================================================== */}
 
-        {activeTab ===
-          "files" && (
+        {activeTab === "files" && (
+          isUploadedProject && files.length === 0 ? (
+            <div className="space-y-6">
+              <ProjectFileUpload
+                projectId={uploadedRouteProjectId}
+                onUploadSuccess={handleUploadSuccess}
+              />
+            </div>
+          ) : (
           <section className="grid grid-cols-[370px_1fr] gap-5 max-[950px]:grid-cols-1">
             {/* FILE TREE */}
 
@@ -1857,6 +2200,7 @@ export default function Repository() {
               </div>
             </div>
           </section>
+          )
         )}
 
         {/* ===================================================
@@ -1910,58 +2254,119 @@ export default function Repository() {
 
                 <div className="rounded-lg border border-[#292d30] bg-[#111314] p-5">
                   <p className="text-[11px] text-[#737b81]">
-                    Default Branch
+                    Documentation Status
                   </p>
 
-                  <p className="mt-2 truncate text-[15px] font-medium">
-                    {isUploadedProject
-                      ? "Local Upload"
-                      : repository.default_branch ||
-                        "—"}
+                  <p className="mt-2 truncate text-[15px] font-medium capitalize text-[#49c96d]">
+                    {project?.status || "Ready"}
                   </p>
                 </div>
               </div>
 
               {/* ACTION */}
 
-              <button
-                type="button"
-                onClick={() => {
-                  if (isUploadedProject) {
-                    navigate(
-                      `/docpilot?projectId=${encodeURIComponent(
-                        uploadedRouteProjectId
-                      )}`
-                    );
-                    return;
-                  }
-                  navigate("/docpilot", {
-                    state: {
-                      repositoryOwner,
-                      repositoryName,
-                    },
-                  });
-                }}
-                className="
-                  mt-7
-                  rounded-[7px]
-                  bg-[#ef5148]
-                  px-5
-                  py-3
-                  text-[13px]
-                  font-medium
-                  text-white
-                  transition
-                  hover:bg-[#f25a51]
-                "
-              >
-                Generate Documentation
-              </button>
+              <div className="mt-7 flex flex-wrap items-center gap-3">
+                {project?.latest_job_id ? (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        navigate(
+                          `/docpilot?projectId=${encodeURIComponent(
+                            uploadedRouteProjectId || project.id
+                          )}&jobId=${encodeURIComponent(project.latest_job_id)}`
+                        );
+                      }}
+                      className="
+                        rounded-[7px]
+                        bg-[#ef5148]
+                        px-6
+                        py-3
+                        text-[13px]
+                        font-medium
+                        text-white
+                        transition
+                        hover:bg-[#f25a51]
+                      "
+                    >
+                      View Generated Documentation
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        navigate(
+                          `/docpilot?projectId=${encodeURIComponent(
+                            uploadedRouteProjectId || project.id
+                          )}&start=true`
+                        );
+                      }}
+                      className="
+                        rounded-[7px]
+                        border
+                        border-[#292d30]
+                        bg-[#181a1c]
+                        px-5
+                        py-3
+                        text-[13px]
+                        font-medium
+                        text-[#c4c9cd]
+                        transition
+                        hover:bg-[#222528]
+                        hover:text-white
+                      "
+                    >
+                      Start New Documentation Run
+                    </button>
+                  </>
+                ) : (
+                  <button
+                    type="button"
+                    disabled={isUploadedProject && files.length === 0}
+                    onClick={() => {
+                      if (isUploadedProject && files.length === 0) return;
+                      if (isUploadedProject) {
+                        navigate(
+                          `/docpilot?projectId=${encodeURIComponent(
+                            uploadedRouteProjectId || project?.id
+                          )}&start=true`
+                        );
+                        return;
+                      }
+                      navigate("/docpilot", {
+                        state: {
+                          repositoryOwner,
+                          repositoryName,
+                        },
+                      });
+                    }}
+                    className={`
+                      rounded-[7px]
+                      px-6
+                      py-3
+                      text-[13px]
+                      font-medium
+                      text-white
+                      transition
+                      ${
+                        isUploadedProject && files.length === 0
+                          ? "bg-[#25282a] text-[#61686e] cursor-not-allowed"
+                          : "bg-[#ef5148] hover:bg-[#f25a51]"
+                      }
+                    `}
+                  >
+                    {isUploadedProject && files.length === 0
+                      ? "Upload Files First"
+                      : "Start Documentation"}
+                  </button>
+                )}
+              </div>
 
               <p className="mt-3 text-[11px] text-[#60686e]">
-              Documentation will be generated from the
-              project files stored on the server.
-            </p>
+                {project?.latest_job_id
+                  ? "A previous documentation run is available. You can view it directly or run a fresh job."
+                  : "Documentation will be generated using Core AI from the project files stored on the server."}
+              </p>
 
             </div>
 

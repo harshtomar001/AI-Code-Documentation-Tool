@@ -22,6 +22,11 @@ class OpenRouterProvider(AIProvider):
         if not api_key:
             raise ValueError("OPENROUTER_API_KEY is not configured")
 
+        self.model = os.getenv(
+            "OPENROUTER_MODEL",
+            "qwen/qwen3.8-27b:free",
+        )
+
         self.client = OpenAI(
             base_url="https://openrouter.ai/api/v1",
             api_key=api_key,
@@ -44,7 +49,7 @@ class OpenRouterProvider(AIProvider):
         """
         try:
             response = self.client.chat.completions.create(
-                model="openrouter/free",
+                model=self.model,
                 messages=[
                     {
                         "role": "user",
@@ -65,5 +70,5 @@ class OpenRouterProvider(AIProvider):
 
         except Exception as exc:
             raise AIProviderError(
-                "OpenRouter provider failed to generate a response"
+                f"OpenRouter provider failed to generate a response: {exc}"
             ) from exc

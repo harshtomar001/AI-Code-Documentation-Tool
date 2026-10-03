@@ -2,7 +2,10 @@
 
 import asyncio
 from concurrent.futures import Future
+import logging
 from uuid import UUID
+
+logger = logging.getLogger(__name__)
 
 from backend.services.jobs.batch_results import BatchResult
 from backend.services.repositories import JobWorkspace
@@ -117,23 +120,26 @@ class JobWorker:
             )
 
             async def persist_batch() -> None:
-                """Persist the batch and notify the frontend after commit."""
+                """Persist the batch and notify the frontend after completion."""
 
-                project_uuid = UUID(project_id) if project_id else None
+                try:
+                    project_uuid = UUID(project_id) if project_id else None
 
-                async with AsyncSessionLocal() as db:
-                    await save_documentation_batch(
-                        db,
-                        result=result,
-                        project_id=project_uuid,
-                    )
+                    async with AsyncSessionLocal() as db:
+                        await save_documentation_batch(
+                            db,
+                            result=result,
+                            project_id=project_uuid,
+                        )
+                except Exception as exc:
+                    logger.warning("Failed to persist documentation batch to database: %s", exc)
 
                 # Keep the in-memory cache for fast access during
                 # the active job.
                 self.job_manager.save_batch_result(result)
 
-                # Only notify the frontend after the database commit
-                # has successfully completed.
+                # Only notify the frontend after the batch
+                # has completed.
                 publisher.emit(
                     job_id=job_id,
                     stage="batch",
@@ -179,7 +185,7 @@ class JobWorker:
                 job_id=job_id,
                 stage="server",
                 type="info",
-                message="Repository reached the Core AI server",
+                message="Repository uploaded",
             )
 
             if self.pipeline is None:
@@ -213,18 +219,21 @@ class JobWorker:
                 )
 
             if project_id:
-                project_uuid = UUID(project_id)
+                try:
+                    project_uuid = UUID(project_id)
 
-                metrics = calculate_documentation_metrics(
-                    pipeline_result,
-                )
-
-                async with AsyncSessionLocal() as db:
-                    await save_documentation_run(
-                        db,
-                        project_id=project_uuid,
-                        **metrics,
+                    metrics = calculate_documentation_metrics(
+                        pipeline_result,
                     )
+
+                    async with AsyncSessionLocal() as db:
+                        await save_documentation_run(
+                            db,
+                            project_id=project_uuid,
+                            **metrics,
+                        )
+                except Exception as exc:
+                    logger.warning("Failed to persist documentation run to database: %s", exc)
 
             # Wait until all queued CorePipeline events have reached
             # the async event broker.

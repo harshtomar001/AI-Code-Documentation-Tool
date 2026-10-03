@@ -141,3 +141,41 @@ export function createJobEventSource(jobId) {
     }
   );
 }
+
+/**
+ * Download the documented repository as a ZIP archive.
+ */
+export async function downloadJobArchive(
+  jobId,
+  token = null,
+  repositoryName = "repository"
+) {
+  const config = {
+    responseType: "blob",
+  };
+
+  if (token) {
+    config.headers = {
+      Authorization: `Bearer ${token}`,
+    };
+  }
+
+  const response = await api.get(
+    `/api/jobs/${encodeURIComponent(jobId)}/download`,
+    config
+  );
+
+  const blob = new Blob([response.data], { type: "application/zip" });
+  const downloadUrl = window.URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = downloadUrl;
+  const safeName = (repositoryName || "repository").replace(
+    /[^a-zA-Z0-9_\-\.]/g,
+    "_"
+  );
+  anchor.download = `${safeName}_documented.zip`;
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  window.URL.revokeObjectURL(downloadUrl);
+}

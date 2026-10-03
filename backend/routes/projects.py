@@ -4,7 +4,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from database.database import get_db
-from database.models import Project, User
+from database.models import DocumentationBatch, Project, User
 from routes.auth.auth import get_current_user
 from schemas.project import ProjectCreateRequest
 
@@ -139,7 +139,17 @@ async def get_project(
             detail="Project not found",
         )
 
-    return serialize_project(project)
+    batch_result = await db.execute(
+        select(DocumentationBatch.job_id)
+        .where(DocumentationBatch.project_id == project_id)
+        .order_by(DocumentationBatch.created_at.desc())
+        .limit(1)
+    )
+    latest_job_id = batch_result.scalar_one_or_none()
+
+    serialized = serialize_project(project)
+    serialized["latest_job_id"] = latest_job_id
+    return serialized
 
 
 @router.delete("/{project_id}")
