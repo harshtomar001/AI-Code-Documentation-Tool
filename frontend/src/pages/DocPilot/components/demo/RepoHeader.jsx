@@ -9,7 +9,7 @@ import './RepoHeader.css';
 
 const SPEEDS = [1, 2, 4, 8];
 
-export default function RepoHeader({ view, onViewChange }) {
+export default function RepoHeader() {
   const engine = useEngine();
   const navigate = useNavigate();
   const { opts } = engine;
@@ -121,27 +121,8 @@ export default function RepoHeader({ view, onViewChange }) {
         )}
       </div>
 
-      <div className="repo-head__side">
-        <div className="repo-head__views">
-          <button
-            type="button"
-            className="btn"
-            aria-pressed={view === 'demo'}
-            onClick={() => onViewChange('demo')}
-          >
-            {isReal ? 'Pipeline & Batches' : 'Live demo'}
-          </button>
-          <button
-            type="button"
-            className="btn"
-            aria-pressed={view === 'arch'}
-            onClick={() => onViewChange('arch')}
-          >
-            Architecture ideas
-          </button>
-        </div>
-
-        {!isReal && (
+      {!isReal && (
+        <div className="repo-head__side">
           <div className="repo-head__toggles">
             {engine.autoCommit && (
               <button
@@ -168,8 +149,8 @@ export default function RepoHeader({ view, onViewChange }) {
               onChange={(v) => engine.setOpt('autopilot', v)}
             />
           </div>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 }

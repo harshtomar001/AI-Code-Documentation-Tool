@@ -15,7 +15,6 @@ import ProgressCard from "./components/demo/ProgressCard.jsx";
 import ReviewModal from "./components/review/ReviewModal.jsx";
 import ToastStack from "./components/common/ToastStack.jsx";
 
-import ArchitectureView from "./components/architecture/ArchitectureView.jsx";
 import CompletionPanel from "./components/demo/CompletionPanel.jsx";
 import JobFailedCard from "./components/demo/JobFailedCard.jsx";
 import { useEngine } from "./hooks/useEngine.js";
@@ -27,7 +26,7 @@ import "./styles/tokens.css";
 import "./styles/base.css";
 import "./DocPilot.css";
 
-function DocPilotContent({ view, setView }) {
+function DocPilotContent() {
   const engine = useEngine();
 
   const isCompleted =
@@ -36,36 +35,32 @@ function DocPilotContent({ view, setView }) {
 
   return (
     <main className="docpilot-content">
-      <RepoHeader view={view} onViewChange={setView} />
+      <RepoHeader />
 
-      {view === "demo" ? (
-        <div className="demo-layout">
-          {isFailed && <JobFailedCard />}
+      <div className="demo-layout">
+        {isFailed && <JobFailedCard />}
 
-          {isCompleted ? (
-            <div className="demo-grid demo-grid--completed">
-              <CompletionPanel />
+        {isCompleted ? (
+          <div className="demo-grid demo-grid--completed">
+            <CompletionPanel />
 
-              <div className="demo-grid__right">
-                <EventFeed />
-                <CommitPanel />
-              </div>
+            <div className="demo-grid__right">
+              <EventFeed />
+              <CommitPanel />
             </div>
-          ) : (
-            <div className="demo-grid">
-              <Pipeline />
+          </div>
+        ) : (
+          <div className="demo-grid">
+            <Pipeline />
 
-              <div className="demo-grid__right">
-                <EventFeed />
-                <CommitPanel />
-                <ProgressCard />
-              </div>
+            <div className="demo-grid__right">
+              <EventFeed />
+              <CommitPanel />
+              <ProgressCard />
             </div>
-          )}
-        </div>
-      ) : (
-        <ArchitectureView />
-      )}
+          </div>
+        )}
+      </div>
     </main>
   );
 }
@@ -73,7 +68,6 @@ function DocPilotContent({ view, setView }) {
 export default function DocPilot() {
   const [engine] = useState(() => new Engine());
   const [theme, setTheme] = useState("dark");
-  const [view, setView] = useState("demo");
 
   const [searchParams, setSearchParams] = useSearchParams();
 
@@ -153,12 +147,6 @@ export default function DocPilot() {
     document.documentElement.dataset.theme = theme;
   }, [theme]);
 
-  useEffect(() => {
-    if (view === "arch") {
-      engine.closeModal();
-    }
-  }, [view, engine]);
-
   return (
     <EngineContext.Provider value={engine}>
       <div className="docpilot-page">
@@ -169,7 +157,7 @@ export default function DocPilot() {
           }
         />
 
-        <DocPilotContent view={view} setView={setView} />
+        <DocPilotContent />
       </div>
 
       <ReviewModal />

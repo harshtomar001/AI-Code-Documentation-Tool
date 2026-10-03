@@ -9,13 +9,10 @@
 .seg button { border: 0; background: none; color: var(--muted); padding: 5px 13px; border-radius: 6px; font-weight: 500; font-size: 13.5px; }
 .seg button[aria-pressed='true'] { background: var(--accent); color: var(--accent-ink); font-weight: 600; }
 .repo-head__side { margin-left: auto; display: grid; gap: 10px; justify-items: end; }
-.repo-head__views { display: flex; gap: 10px; flex-wrap: wrap; justify-content: flex-end; }
-.repo-head__views .btn { background: var(--panel-2); padding: 10px 16px; }
-.repo-head__views .btn[aria-pressed='true'] { border-color: var(--accent); color: var(--ink); background: var(--accent-soft); }
 .repo-head__toggles { display: flex; gap: 8px 22px; flex-wrap: wrap; justify-content: flex-end; align-items: center; }
 .auto-chip { border: 1px solid var(--green); background: var(--green-soft); color: var(--green); border-radius: 999px; padding: 4px 12px; font-weight: 600; font-size: 12px; }
 
 @media (max-width: 900px) {
   .repo-head__side { margin-left: 0; justify-items: start; width: 100%; }
-  .repo-head__views, .repo-head__toggles { justify-content: flex-start; }
+  .repo-head__toggles { justify-content: flex-start; }
 }
