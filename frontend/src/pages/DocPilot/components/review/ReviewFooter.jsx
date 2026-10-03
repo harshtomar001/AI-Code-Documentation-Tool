@@ -7,7 +7,9 @@ export default function ReviewFooter({ batch }) {
   const f = batch.files[batch.page];
   const fp = pendingHunks(f).length;
   const pend = pendingCount(batch);
-  const readyPend = engine.batches.filter((x) => x.status === 'ready').reduce((n, x) => n + pendingCount(x), 0);
+  const readyBatches = engine.batches.filter((x) => x.status !== 'done' && x.status !== 'committed' && pendingCount(x) > 0);
+  const readyPend = readyBatches.reduce((n, x) => n + pendingCount(x), 0);
+
 
   return (
     <div className="modal__foot">

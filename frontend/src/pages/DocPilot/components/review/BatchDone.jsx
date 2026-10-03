@@ -1,14 +1,27 @@
 import { useEngine } from '../../hooks/useEngine.js';
+import { batchState, pendingCount } from '../../engine/helpers.js';
 import { PR_BRANCH } from '../../data/constants.js';
 import Icon from '../common/Icon.jsx';
 import './BatchDone.css';
+
+const isCommitted = (b) => {
+  const s = batchState(b);
+  return (
+    s === 'done' ||
+    s === 'committed' ||
+    b.status === 'done' ||
+    b.status === 'committed' ||
+    (b.files && b.files.length > 0 && pendingCount(b) === 0)
+  );
+};
 
 export default function BatchDone({ batch }) {
   const engine = useEngine();
   let c = 0, s = 0;
   batch.files.forEach((f) => f.hunks.forEach((h) => { if (h.status === 'committed') c++; else if (h.status === 'skipped') s++; }));
-  const next = engine.batches.findIndex((x) => x.status === 'ready');
-  const waiting = engine.batches.filter((x) => x.status === 'ready').length;
+  const next = engine.batches.findIndex((x) => !isCommitted(x) && (x.status === 'ready' || batchState(x) === 'partial'));
+  const waiting = engine.batches.filter((x) => !isCommitted(x) && (x.status === 'ready' || batchState(x) === 'partial')).length;
+
 
   return (
     <div className="done">
@@ -17,7 +30,7 @@ export default function BatchDone({ batch }) {
       <p>{c} changes committed{s ? `, ${s} skipped` : ''} on <code>{PR_BRANCH}</code></p>
       {waiting > 0 && <p>{waiting} more {waiting === 1 ? 'batch is' : 'batches are'} waiting for review.</p>}
       <div className="done__btns">
-        {next >= 0 && <button className="btn btn--accent" onClick={() => engine.switchBatch(next)}>Review batch {next + 1}</button>}
+        {next >= 0 && <button className="btn btn--accent" onClick={() => engine.switchBatch(next)}>Review batch {engine.batches[next]?.id || next + 1}</button>}
         <button className="btn" onClick={() => engine.closeModal()}>Close window</button>
       </div>
     </div>

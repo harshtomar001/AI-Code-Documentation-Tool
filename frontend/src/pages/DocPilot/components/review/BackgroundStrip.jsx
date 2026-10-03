@@ -1,13 +1,25 @@
 import { useEngine } from '../../hooks/useEngine.js';
-import { pendingCount } from '../../engine/helpers.js';
+import { batchState, pendingCount } from '../../engine/helpers.js';
 import './BackgroundStrip.css';
+
+const isCommitted = (b) => {
+  const s = batchState(b);
+  return (
+    s === 'done' ||
+    s === 'committed' ||
+    b.status === 'done' ||
+    b.status === 'committed' ||
+    (b.files && b.files.length > 0 && pendingCount(b) === 0)
+  );
+};
 
 /** Shows what is still happening on the server while the person reviews one batch. */
 export default function BackgroundStrip() {
   const engine = useEngine();
   const cur = engine.modal.batch;
   const c = engine.counts();
-  const others = engine.batches.filter((b) => b.status === 'ready' && b.id - 1 !== cur);
+  const others = engine.batches.filter((b) => !isCommitted(b) && (b.status === 'ready' || batchState(b) === 'partial') && b.id - 1 !== cur);
+
 
   return (
     <div className="bg">

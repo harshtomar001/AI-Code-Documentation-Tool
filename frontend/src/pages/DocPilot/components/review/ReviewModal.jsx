@@ -86,7 +86,7 @@ export default function ReviewModal() {
     return null;
   }
 
-  const done = b.status === "done";
+  const done = b.status === "done" || b.status === "committed" || (b.files && b.files.length > 0 && pendingCount(b) === 0 && b.status !== "generating");
   const file = b.files?.[b.page];
   const totalBatches = engine.totalBatches || REPO.batches;
   const hasFiles = b.files && b.files.length > 0;
@@ -98,7 +98,7 @@ export default function ReviewModal() {
   let reviewStatusLabel = "Ready for review";
   let reviewStatusClass = "ready";
   if (done || (totalChanges > 0 && pending === 0)) {
-    reviewStatusLabel = "Reviewed";
+    reviewStatusLabel = "Reviewed & Committed";
     reviewStatusClass = "done";
   } else if (pending < totalChanges && pending > 0) {
     reviewStatusLabel = "Partially reviewed";
@@ -246,13 +246,27 @@ export default function ReviewModal() {
                   : "Batch README"}
               </span>
               {hasReadme && (
-                <button
-                  type="button"
-                  className="btn btn--sm btn--outline"
-                  onClick={handleCopyReadme}
-                >
-                  {copiedReadme ? "Copied!" : "Copy README Markdown"}
-                </button>
+                <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+                  {!done && (
+                    <button
+                      type="button"
+                      className="btn btn--sm btn--accent"
+                      onClick={() => {
+                        b.status = "done";
+                        engine.afterCommit(b);
+                      }}
+                    >
+                      Approve & Commit Batch
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    className="btn btn--sm btn--outline"
+                    onClick={handleCopyReadme}
+                  >
+                    {copiedReadme ? "Copied!" : "Copy README Markdown"}
+                  </button>
+                </div>
               )}
             </div>
 

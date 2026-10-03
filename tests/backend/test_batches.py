@@ -62,3 +62,49 @@ def test_get_missing_batch_result_returns_404() -> None:
 
     assert response.status_code == 404
     assert response.json()["detail"] == "Batch result not found"
+
+
+def test_commit_single_batch_updates_status() -> None:
+    job_id = "commit-single-batch-test"
+
+    job_manager.save_batch_result(make_result(job_id, 1))
+
+    client = TestClient(app)
+
+    # Initially "completed"
+    res1 = client.get(f"/api/jobs/{job_id}/batches/1")
+    assert res1.status_code == 200
+    assert res1.json()["status"] == "completed"
+
+    # Commit batch 1
+    post_res = client.post(f"/api/jobs/{job_id}/batches/1/commit")
+    assert post_res.status_code == 200
+    assert post_res.json()["status"] == "committed"
+
+    # Subsequent GET must return "committed"
+    res2 = client.get(f"/api/jobs/{job_id}/batches/1")
+    assert res2.status_code == 200
+    assert res2.json()["status"] == "committed"
+
+
+def test_commit_all_batches_updates_status() -> None:
+    job_id = "commit-all-batches-test"
+
+    job_manager.save_batch_result(make_result(job_id, 1))
+    job_manager.save_batch_result(make_result(job_id, 2))
+
+    client = TestClient(app)
+
+    post_res = client.post(f"/api/jobs/{job_id}/commit")
+    assert post_res.status_code == 200
+    data = post_res.json()
+    assert len(data) == 2
+    assert all(b["status"] == "committed" for b in data)
+
+    # Subsequent GET batches must also reflect "committed"
+    get_res = client.get(f"/api/jobs/{job_id}/batches")
+    assert get_res.status_code == 200
+    batches = get_res.json()
+    assert len(batches) == 2
+    assert all(b["status"] == "committed" for b in batches)
+

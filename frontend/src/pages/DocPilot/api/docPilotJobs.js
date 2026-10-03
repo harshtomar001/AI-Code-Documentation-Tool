@@ -4,11 +4,14 @@ import {
   getJob,
   getJobBatches,
   getBatchResult,
+  commitJobBatch,
+  commitAllJobBatches,
   uploadRepository,
   downloadJobArchive,
 } from "../../../api/jobs.js";
 
-export { downloadJobArchive };
+export { downloadJobArchive, commitJobBatch, commitAllJobBatches };
+
 
 /**
  * Start a documentation job from a local ZIP repository.

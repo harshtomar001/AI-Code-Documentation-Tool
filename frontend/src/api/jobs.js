@@ -128,6 +128,55 @@ export async function getBatchResult(
 }
 
 /**
+ * Commit one completed batch result.
+ */
+export async function commitJobBatch(
+  jobId,
+  batchId,
+  token = null
+) {
+  const config = {};
+
+  if (token) {
+    config.headers = {
+      Authorization: `Bearer ${token}`,
+    };
+  }
+
+  const response = await api.post(
+    `/api/jobs/${encodeURIComponent(jobId)}/batches/${batchId}/commit`,
+    {},
+    config
+  );
+
+  return response.data;
+}
+
+/**
+ * Commit all completed batches for a job.
+ */
+export async function commitAllJobBatches(
+  jobId,
+  token = null
+) {
+  const config = {};
+
+  if (token) {
+    config.headers = {
+      Authorization: `Bearer ${token}`,
+    };
+  }
+
+  const response = await api.post(
+    `/api/jobs/${encodeURIComponent(jobId)}/commit`,
+    {},
+    config
+  );
+
+  return response.data;
+}
+
+/**
  * Open the SSE stream for a documentation job.
  */
 export function createJobEventSource(jobId) {

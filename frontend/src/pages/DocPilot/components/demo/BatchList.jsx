@@ -20,27 +20,47 @@ const LABEL = {
   completed: 'Ready for review',
 };
 
-const matches = (filter, s) =>
-  filter === 'all' ||
-  (filter === 'review'
-    ? s === 'ready' || s === 'partial' || s === 'completed'
-    : filter === s);
+const matches = (filter, r) => {
+  if (filter === 'all') return true;
+  if (filter === 'review') {
+    return !r.isCommitted && (r.s === 'ready' || r.s === 'partial');
+  }
+  if (filter === 'done') {
+    return r.isCommitted || r.s === 'done';
+  }
+  return filter === r.s;
+};
+
+const checkIsCommitted = (b) => {
+  const s = batchState(b);
+  return (
+    s === 'done' ||
+    s === 'committed' ||
+    b.status === 'done' ||
+    b.status === 'committed' ||
+    (b.files && b.files.length > 0 && pendingCount(b) === 0)
+  );
+};
 
 /** The dropdown behind "Creating batches": displays real and simulated batches dynamically. */
 export default function BatchList() {
   const engine = useEngine();
   const [filter, setFilter] = useState('all');
 
-  const rows = engine.batches.map((b, idx) => ({
-    b,
-    idx,
-    s: batchState(b),
-  }));
+  const rows = engine.batches.map((b, idx) => {
+    const committed = checkIsCommitted(b);
+    return {
+      b,
+      idx,
+      s: committed ? 'done' : batchState(b),
+      isCommitted: committed,
+    };
+  });
 
-  const count = (f) => rows.filter((r) => matches(f, r.s)).length;
-  const shown = rows.filter((r) => matches(filter, r.s));
+  const count = (f) => rows.filter((r) => matches(f, r)).length;
+  const shown = rows.filter((r) => matches(filter, r));
   const firstReady = rows.find(
-    (r) => r.s === 'ready' || r.s === 'partial' || r.s === 'completed'
+    (r) => !r.isCommitted && (r.s === 'ready' || r.s === 'partial')
   );
 
   return (
@@ -77,7 +97,7 @@ export default function BatchList() {
         >
           {firstReady
             ? `Review batch ${firstReady.b.id}`
-            : 'Nothing to review yet'}
+            : 'All batches reviewed'}
         </button>
       </div>
 
@@ -86,13 +106,13 @@ export default function BatchList() {
           <div className="batches__empty">No batches in this list yet.</div>
         )}
 
-        {shown.map(({ b, idx, s }) => {
+        {shown.map(({ b, idx, s, isCommitted }) => {
           const filesCount = b.files?.length || 0;
           const changesCount = changesIn(b);
           const hasReadme = Boolean(b.readme);
 
           return (
-            <div key={b.id} className={`batch batch--${s}`}>
+            <div key={b.id} className={`batch batch--${s} ${isCommitted ? 'batch--committed' : ''}`}>
               <span className="batch__id">Batch #{b.id}</span>
 
               <div className="batch__info">
@@ -120,23 +140,30 @@ export default function BatchList() {
                   </span>
                 )}
 
-                <span className={`pill pill--${s}`}>
-                  {s === 'generating'
-                    ? `${Math.round((b.p || 0) * 100)}%`
-                    : LABEL[s] || s}
-                </span>
+                {isCommitted ? (
+                  <div className="batch__status-badges">
+                    <span className="pill pill--done">✓ Reviewed</span>
+                    <span className="pill pill--committed">✓ Committed</span>
+                  </div>
+                ) : (
+                  <span className={`pill pill--${s}`}>
+                    {s === 'generating'
+                      ? `${Math.round((b.p || 0) * 100)}%`
+                      : LABEL[s] || s}
+                  </span>
+                )}
               </div>
 
               <div className="batch__action">
-                <button
-                  type="button"
-                  className={`btn btn--sm ${
-                    s === 'done' ? 'btn--ghost' : 'btn--accent'
-                  }`}
-                  onClick={() => engine.openModal(idx)}
-                >
-                  {s === 'done' ? 'View Batch' : 'Review Batch'}
-                </button>
+                {!isCommitted && (
+                  <button
+                    type="button"
+                    className="btn btn--sm btn--accent"
+                    onClick={() => engine.openModal(idx)}
+                  >
+                    Review Batch
+                  </button>
+                )}
               </div>
             </div>
           );
@@ -145,3 +172,5 @@ export default function BatchList() {
     </div>
   );
 }
+
+

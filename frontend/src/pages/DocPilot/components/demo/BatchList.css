@@ -17,7 +17,8 @@
 .pill { flex: none; border-radius: 999px; padding: 2px 10px; font-size: 12px; font-weight: 600; background: var(--raised, rgba(255,255,255,0.06)); color: var(--muted); }
 .pill--generating { background: var(--amber-soft); color: var(--amber); }
 .pill--ready, .pill--partial { background: var(--accent); color: var(--accent-ink); }
-.pill--done, .pill--completed { background: var(--green-soft); color: var(--green); }
+.pill--done, .pill--completed, .pill--committed { background: var(--green-soft); color: var(--green); }
+.batch__status-badges { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
 .batch__prog { width: 70px; height: 4px; border-radius: 2px; background: var(--line); overflow: hidden; flex: none; }
 .batch__prog b { display: block; height: 100%; background: var(--amber); }
 .batches__empty { padding: 24px; text-align: center; color: var(--muted); }

@@ -1,9 +1,20 @@
 import { useNavigate } from "react-router-dom";
 import { useEngine } from "../../hooks/useEngine.js";
-import { changesIn } from "../../engine/helpers.js";
+import { batchState, changesIn, pendingCount } from "../../engine/helpers.js";
 import Icon from "../common/Icon.jsx";
 import BatchList from "./BatchList.jsx";
 import "./CompletionPanel.css";
+
+const isCommitted = (b) => {
+  const s = batchState(b);
+  return (
+    s === "done" ||
+    s === "committed" ||
+    b.status === "done" ||
+    b.status === "committed" ||
+    (b.files && b.files.length > 0 && pendingCount(b) === 0)
+  );
+};
 
 export default function CompletionPanel() {
   const engine = useEngine();
@@ -26,11 +37,15 @@ export default function CompletionPanel() {
   const readmeCount = hasReadme ? 1 : 0;
   const batchesCount = batches.length || engine.totalBatches || 0;
 
+  const firstReadyIdx = batches.findIndex((b) => !isCommitted(b));
+  const hasUncommitted = firstReadyIdx !== -1;
+
   const handleReview = () => {
-    if (batches.length > 0) {
-      engine.openModal(0);
+    if (hasUncommitted) {
+      engine.openModal(firstReadyIdx);
     }
   };
+
 
   const handleDownload = () => {
     engine.downloadZip();
@@ -86,13 +101,15 @@ export default function CompletionPanel() {
         </div>
 
         <div className="completion-actions">
-          <button
-            type="button"
-            className="btn btn--accent btn--lg"
-            onClick={handleReview}
-          >
-            Review Documentation
-          </button>
+          {hasUncommitted && (
+            <button
+              type="button"
+              className="btn btn--accent btn--lg"
+              onClick={handleReview}
+            >
+              Review Documentation
+            </button>
+          )}
 
           <button
             type="button"
@@ -115,7 +132,11 @@ export default function CompletionPanel() {
       <div className="completion-batches">
         <div className="completion-batches__head">
           <h3>Generated Batches ({batches.length})</h3>
-          <span className="completion-batches__hint">Click Review Batch to inspect changes and generated docstrings</span>
+          <span className="completion-batches__hint">
+            {hasUncommitted
+              ? "Click Review Batch to inspect changes and generated docstrings"
+              : "All documentation batches have been reviewed and committed"}
+          </span>
         </div>
         <BatchList />
       </div>

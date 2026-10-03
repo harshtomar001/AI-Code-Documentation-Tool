@@ -7,10 +7,15 @@ export const changesIn = (b) => b.files.reduce((n, f) => n + f.hunks.length, 0);
 
 /** One of: queued, generating, ready, partial, done */
 export function batchState(b) {
-  if (b.status === 'ready' && b.files.some((f) => f.hunks.some((h) => h.status !== 'pending')))
+  if (!b) return 'queued';
+  if (b.status === 'done' || b.status === 'committed') return 'done';
+  if (b.files && b.files.length > 0 && pendingCount(b) === 0 && (b.status === 'ready' || b.status === 'partial'))
+    return 'done';
+  if (b.status === 'ready' && b.files && b.files.some((f) => f.hunks.some((h) => h.status !== 'pending')))
     return 'partial';
   return b.status;
 }
+
 
 function makeFile(g) {
   const t = TEMPLATES[g % TEMPLATES.length];

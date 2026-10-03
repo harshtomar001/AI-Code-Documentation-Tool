@@ -9,6 +9,10 @@ from database.models import DocumentationBatch, Project, User
 from utils.jwt import verify_access_token
 from backend.services.jobs import BatchResult
 
+import logging
+
+logger = logging.getLogger(__name__)
+
 from .jobs import job_manager
 
 
@@ -133,3 +137,108 @@ async def get_batch_result(
         )
 
     return serialize_batch(row)
+
+
+@router.post(
+    "/{job_id}/batches/{batch_id}/commit",
+    response_model=BatchResult,
+)
+async def commit_job_batch(
+    job_id: str,
+    batch_id: int,
+    user: User | None = Depends(get_optional_user),
+    db: AsyncSession = Depends(get_db),
+) -> BatchResult:
+    """Mark a batch result as committed."""
+
+    # Update in-memory cache if present
+    in_memory = job_manager.get_batch_result(job_id, batch_id)
+    if in_memory is not None:
+        in_memory.status = "committed"
+
+    try:
+        query = (
+            select(DocumentationBatch)
+            .where(
+                DocumentationBatch.job_id == job_id,
+                DocumentationBatch.batch_id == batch_id,
+            )
+        )
+
+        if user is not None:
+            query = (
+                query.join(
+                    Project,
+                    DocumentationBatch.project_id == Project.id,
+                )
+                .where(Project.user_id == user.id)
+            )
+
+        result = await db.execute(query)
+        row = result.scalar_one_or_none()
+
+        if row is not None:
+            row.status = "committed"
+            await db.commit()
+            await db.refresh(row)
+            return serialize_batch(row)
+    except Exception as exc:
+        logger.warning("Failed to update database documentation batch status: %s", exc)
+
+    if in_memory is not None:
+        return in_memory
+
+    raise HTTPException(
+        status_code=status.HTTP_404_NOT_FOUND,
+        detail="Batch result not found",
+    )
+
+
+@router.post(
+    "/{job_id}/commit",
+    response_model=list[BatchResult],
+)
+async def commit_all_job_batches(
+    job_id: str,
+    user: User | None = Depends(get_optional_user),
+    db: AsyncSession = Depends(get_db),
+) -> list[BatchResult]:
+    """Mark all batches for a job as committed."""
+
+    # Update in-memory cache if present
+    in_memory = job_manager.get_batch_results(job_id)
+    for item in in_memory:
+        item.status = "committed"
+
+    try:
+        query = (
+            select(DocumentationBatch)
+            .where(DocumentationBatch.job_id == job_id)
+            .order_by(DocumentationBatch.batch_id.asc())
+        )
+
+        if user is not None:
+            query = (
+                query.join(
+                    Project,
+                    DocumentationBatch.project_id == Project.id,
+                )
+                .where(Project.user_id == user.id)
+            )
+
+        result = await db.execute(query)
+        rows = result.scalars().all()
+
+        if rows:
+            for row in rows:
+                row.status = "committed"
+            await db.commit()
+            for row in rows:
+                await db.refresh(row)
+            return [serialize_batch(row) for row in rows]
+    except Exception as exc:
+        logger.warning("Failed to commit all database documentation batches: %s", exc)
+
+    return in_memory
+
+

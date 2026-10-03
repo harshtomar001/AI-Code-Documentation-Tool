@@ -1,6 +1,6 @@
 import { REPO, PR_BRANCH, STEP_DEFS, FINDINGS } from '../data/constants.js';
 import { fmtClock, fakeSha, shortPath, fmtN } from '../utils/format.js';
-import { makeBatches, pendingHunks, pendingCount, changesIn } from './helpers.js';
+import { makeBatches, pendingHunks, pendingCount, changesIn, batchState } from './helpers.js';
 import {
   startProjectJob,
   fetchJob,
@@ -8,6 +8,8 @@ import {
   fetchBatch,
   subscribeToJob,
   downloadJobArchive,
+  commitJobBatch,
+  commitAllJobBatches,
 } from "../api/docPilotJobs.js";
 
 import { normalizeBatch, normalizeBatches } from '../utils/batchAdapter.js';
@@ -724,20 +726,36 @@ stop() {
 
   /* ---------- derived data ---------- */
   counts() {
-  const statuses = this.batches.map((b) => b.status);
+    let queued = 0;
+    let generating = 0;
+    let ready = 0;
+    let done = 0;
 
-  const queued = statuses.filter((s) => s === "queued").length;
-  const generating = statuses.filter((s) => s === "generating").length;
-  const ready = statuses.filter((s) => s === "ready").length;
-  const done = statuses.filter((s) => s === "done").length;
+    for (const b of this.batches) {
+      const s = batchState(b);
+      if (s === "queued") {
+        queued++;
+      } else if (s === "generating") {
+        generating++;
+      } else if (
+        s === "done" ||
+        b.status === "done" ||
+        b.status === "committed" ||
+        (b.files && b.files.length > 0 && pendingCount(b) === 0)
+      ) {
+        done++;
+      } else if (s === "ready" || s === "partial") {
+        ready++;
+      }
+    }
 
-  return {
-    queued,
-    generating,
-    ready,
-    done,
-  };
-}
+    return {
+      queued,
+      generating,
+      ready,
+      done,
+    };
+  }
   tally() {
     let total = 0, committed = 0, skipped = 0;
     for (const b of this.batches)
@@ -1017,7 +1035,7 @@ stop() {
     } else this.commitRepo();
   }
   commitRepo() {
-    const ready = this.batches.filter((b) => b.status === 'ready');
+    const ready = this.batches.filter((b) => b.status !== 'done' && b.status !== 'committed' && pendingCount(b) > 0);
     const list = ready.flatMap((b) => b.files.flatMap((f) => pendingHunks(f)));
     this.autoCommit = true;
     this.confirmRepo = false;
@@ -1026,6 +1044,11 @@ stop() {
       list.forEach((h) => { h.status = 'committed'; h.sha = sha; });
     }
     ready.forEach((b) => this.checkBatchDone(b));
+    if (this.realJob && this.jobId) {
+      commitAllJobBatches(this.jobId, getToken()).catch((err) => {
+        console.error("Failed to commit all batches on backend:", err);
+      });
+    }
     this.modal.open = false;
     this.toast({
       kind: 'ok',
@@ -1039,12 +1062,18 @@ stop() {
     this.emit();
   }
   checkBatchDone(b) {
-    if (b.status !== 'ready' || pendingCount(b) > 0) return;
+    if (b.status === 'done' || b.status === 'committed') return;
+    if (pendingCount(b) > 0) return;
     b.status = 'done';
     let c = 0, s = 0;
     b.files.forEach((f) => f.hunks.forEach((h) => { if (h.status === 'committed') c++; else if (h.status === 'skipped') s++; }));
     this.log('commit', `Batch ${b.id} finished: ${c} committed${s ? `, ${s} skipped` : ''}`);
-    if (this.batches.every((x) => x.status === 'done')) this.finish();
+    if (this.realJob && this.jobId) {
+      commitJobBatch(this.jobId, b.id, getToken()).catch((err) => {
+        console.error(`Failed to commit batch ${b.id} on backend:`, err);
+      });
+    }
+    if (this.batches.every((x) => x.status === 'done' || x.status === 'committed')) this.finish();
   }
   finish() {
     if (this.finished) return;
@@ -1167,14 +1196,14 @@ stop() {
   apStep() {
     if (this.autoCommit) { if (this.modal.open) this.closeModal(); return; }
     if (!this.modal.open) {
-      const nx = this.batches.findIndex((b) => b.status === 'ready');
+      const nx = this.batches.findIndex((b) => b.status !== 'done' && b.status !== 'committed' && (b.status === 'ready' || batchState(b) === 'partial') && pendingCount(b) > 0);
       if (nx >= 0) this.openModal(nx);
       return;
     }
     const b = this.batches[this.modal.batch];
-    if (b.status === 'done') {
+    if (b.status === 'done' || b.status === 'committed') {
       this.apDone++;
-      const nx = this.batches.findIndex((x) => x.status === 'ready');
+      const nx = this.batches.findIndex((x) => x.status !== 'done' && x.status !== 'committed' && (x.status === 'ready' || batchState(x) === 'partial') && pendingCount(x) > 0);
       if (nx >= 0) this.openModal(nx); else this.closeModal();
       return;
     }

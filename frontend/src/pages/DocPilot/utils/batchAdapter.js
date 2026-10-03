@@ -186,23 +186,35 @@ export function normalizeBatch(batchResult) {
   }
 
   const files = Array.from(filesMap.values());
+  const isCommitted =
+    batchResult.status === "committed" || batchResult.status === "done";
+
+  if (isCommitted) {
+    for (const file of files) {
+      for (const hunk of file.hunks) {
+        hunk.status = "committed";
+      }
+    }
+  }
 
   return {
     id: batchResult.batch_id,
     total_batches: batchResult.total_batches ?? 1,
-    status:
-      batchResult.status === "completed"
-        ? "ready"
-        : batchResult.status || "ready",
+    status: isCommitted
+      ? "done"
+      : batchResult.status === "completed"
+      ? "ready"
+      : batchResult.status || "ready",
     p: 1,
     worker: 0,
-    fresh: true,
+    fresh: !isCommitted,
     page: 0,
     apSeen: false,
     files,
     changes: beforeAfterList,
     readme: batchResult.readme ?? null,
   };
+
 }
 
 export function normalizeBatches(batchResults) {

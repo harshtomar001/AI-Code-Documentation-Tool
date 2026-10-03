@@ -1,5 +1,6 @@
 import { useNavigate } from "react-router-dom";
 import { useEngine } from "../../hooks/useEngine.js";
+import { batchState, pendingCount } from "../../engine/helpers.js";
 import Icon from "../common/Icon.jsx";
 import Badge from "../common/Badge.jsx";
 import "./Topbar.css";
@@ -21,11 +22,25 @@ function Brand() {
   );
 }
 
+const isCommitted = (b) => {
+  const s = batchState(b);
+  return (
+    s === "done" ||
+    s === "committed" ||
+    b.status === "done" ||
+    b.status === "committed" ||
+    (b.files && b.files.length > 0 && pendingCount(b) === 0)
+  );
+};
+
 export default function Topbar({ theme, onToggleTheme }) {
   const engine = useEngine();
   const navigate = useNavigate();
   const waiting = engine.counts().ready;
-  const first = engine.batches.findIndex((b) => b.status === "ready");
+  const first = engine.batches.findIndex(
+    (b) => !isCommitted(b) && (b.status === "ready" || batchState(b) === "partial")
+  );
+
 
   return (
     <header className="topbar">
