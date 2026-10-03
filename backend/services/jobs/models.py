@@ -4,6 +4,7 @@ from typing import Literal
 
 from pydantic import BaseModel
 
+
 JobStatus = Literal[
     "queued",
     "running",
@@ -16,5 +17,6 @@ class JobInfo(BaseModel):
     """Represent the current state of a documentation job."""
 
     job_id: str
+    project_id: str | None = None
     status: JobStatus
     message: str

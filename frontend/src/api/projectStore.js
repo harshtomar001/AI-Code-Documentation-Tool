@@ -1,145 +1,142 @@
-const PROJECTS_KEY = "docuai_projects_v1";
-const DB_NAME = "docuai_local_projects_v1";
-const STORE_NAME = "files";
+import api from "./client";
 
-export function getSavedProjects() {
-  try {
-    const raw = localStorage.getItem(PROJECTS_KEY);
-    const projects = raw ? JSON.parse(raw) : [];
-    return Array.isArray(projects) ? projects : [];
-  } catch (error) {
-    console.error("Could not load saved projects:", error);
-    return [];
-  }
-}
-
-export function saveProject(project) {
-  const projects = getSavedProjects();
-
-  const existingIndex = projects.findIndex(
-    (item) => item.id === project.id
-  );
-
-  if (existingIndex >= 0) {
-    projects[existingIndex] = project;
-  } else {
-    projects.unshift(project);
-  }
-
-  localStorage.setItem(
-    PROJECTS_KEY,
-    JSON.stringify(projects.slice(0, 50))
-  );
-
-  return project;
-}
-
-export function removeProject(projectId) {
-  const projects = getSavedProjects().filter(
-    (item) => item.id !== projectId
-  );
-
-  localStorage.setItem(
-    PROJECTS_KEY,
-    JSON.stringify(projects)
-  );
-}
-
-function openDatabase() {
-  return new Promise((resolve, reject) => {
-    const request = indexedDB.open(DB_NAME, 1);
-
-    request.onupgradeneeded = () => {
-      const db = request.result;
-      if (!db.objectStoreNames.contains(STORE_NAME)) {
-        db.createObjectStore(STORE_NAME, {
-          keyPath: "id",
-        });
-      }
-    };
-
-    request.onsuccess = () => resolve(request.result);
-    request.onerror = () => reject(request.error);
-  });
-}
-
+/**
+ * Upload all files belonging to a local project.
+ *
+ * The browser gives us File objects from:
+ * <input type="file" webkitdirectory />
+ *
+ * We preserve webkitRelativePath so the backend can reconstruct
+ * the original repository structure.
+ */
 export async function saveProjectFiles(projectId, files) {
-  const db = await openDatabase();
+  if (!projectId) {
+    throw new Error("Project ID is required.");
+  }
 
-  await new Promise((resolve, reject) => {
-    const transaction = db.transaction(
-      STORE_NAME,
-      "readwrite"
+  console.log("inside SAVE PROJECT FILES");
+
+  if (!files || files.length === 0) {
+    return {
+      project_id: projectId,
+      files_uploaded: 0,
+    };
+  }
+
+  const formData = new FormData();
+
+  for (const file of files) {
+    const relativePath =
+      file.webkitRelativePath || file.name;
+
+    formData.append(
+      "files",
+      file,
+      relativePath
     );
+  }
 
-    const store = transaction.objectStore(STORE_NAME);
+  console.log("inside SAVE PROJECT FILES  after formData()");
 
-    for (const [index, file] of files.entries()) {
-      const path =
-        file.webkitRelativePath || file.name;
+  try {
+      console.log("before the post api of the files")
 
-      store.put({
-        id: `${projectId}:${index}`,
-        projectId,
-        path,
-        name: file.name,
-        type: file.type || "application/octet-stream",
-        size: file.size || 0,
-        lastModified: file.lastModified || Date.now(),
-        blob: file,
-      });
+      const response = await api.post(
+        `/api/projects/${encodeURIComponent(projectId)}/files`,
+        formData
+      );
+      console.log("after the post  api of the files");
+      console.log("SAVE PROJECT FILES RESPONSE:", response.data);
+
+      return response.data;
+  } catch (error) {
+      console.error(
+        "SAVE PROJECT FILES ERROR:",
+        error.response?.status,
+        error.response?.data
+      );
+
+      throw error;
     }
 
-    transaction.oncomplete = () => resolve();
-    transaction.onerror = () => reject(transaction.error);
-    transaction.onabort = () =>
-      reject(transaction.error || new Error("Transaction aborted"));
-  });
 
-  db.close();
+
+
 }
 
 export async function getProjectFiles(projectId) {
-  const db = await openDatabase();
+  if (!projectId) {
+    throw new Error("Project ID is required.");
+  }
 
-  const records = await new Promise((resolve, reject) => {
-    const transaction = db.transaction(
-      STORE_NAME,
-      "readonly"
-    );
+  console.log("inside the GET PROJECT FILES()");
 
-    const request = transaction
-      .objectStore(STORE_NAME)
-      .getAll();
+  try {
+      console.log("inside the getprojectFiles() before the api call");
 
-    request.onsuccess = () => {
-      resolve(
-        request.result.filter(
-          (item) => item.projectId === projectId
-        )
+      const response = await api.get(
+       `/api/projects/${encodeURIComponent(projectId)}/files`
       );
-    };
 
-    request.onerror = () => reject(request.error);
-  });
+       console.log(
+    "GET PROJECT FILES RESPONSE:",
+    response.data
+  );
+      console.log("inside the getProjectFiles() after the api call");
+      return response.data.files || [];
 
-  db.close();
+  }
+  catch (error) {
 
-  return records.map((record) => {
-    const file = new File(
-      [record.blob],
-      record.name,
-      {
-        type: record.type,
-        lastModified: record.lastModified,
-      }
-    );
+      console.error(
+        "SAVE PROJECT FILES ERROR:",
+        error.response?.status,
+        error.response?.data
+      );
 
-    Object.defineProperty(file, "webkitRelativePath", {
-      configurable: true,
-      value: record.path,
-    });
+      throw error;
 
-    return file;
-  });
+  }
+
+
+}
+
+export async function getProjectFileContent(projectId, path) {
+  if (!projectId) {
+    throw new Error("Project ID is required.");
+  }
+
+  if (!path) {
+    throw new Error("File path is required.");
+  }
+
+  const response = await api.get(
+    `/api/projects/${encodeURIComponent(projectId)}/files/content`,
+    {
+      params: {
+        path,
+      },
+      responseType: "text",
+    }
+  );
+
+  return response.data;
+}
+
+export async function getProject(projectId) {
+  if (!projectId) {
+    throw new Error("Project ID is required.");
+  }
+
+  console.log("inside the GET PROJECT() ");
+
+  console.log("inside the GET PROJECT()  before the api calling");
+
+  const response = await api.get(
+    `/api/projects/${encodeURIComponent(projectId)}`
+  );
+
+  console.log("inside the GET PROJECT() after the api calling");
+
+  return response.data;
 }

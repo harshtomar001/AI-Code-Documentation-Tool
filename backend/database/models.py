@@ -14,6 +14,8 @@ from database.database import Base
 
 from sqlalchemy import Column, Integer, String, Text, DateTime, ForeignKey
 from sqlalchemy.orm import relationship
+from sqlalchemy.dialects.postgresql import UUID,JSONB
+from uuid import UUID as PyUUID, uuid4
 
 # =========================================================
 # USER
@@ -208,8 +210,10 @@ class GitHubConnection(Base):
 class Project(Base):
     __tablename__ = "projects"
 
-    id: Mapped[int] = mapped_column(
+    id: Mapped[PyUUID] = mapped_column(
+        UUID(as_uuid=True),
         primary_key=True,
+        default=uuid4,
         index=True,
     )
 
@@ -285,4 +289,166 @@ class Project(Base):
         server_default=func.now(),
         onupdate=func.now(),
         nullable=False,
+    )
+
+    documentation_runs = relationship(
+        "DocumentationRun",
+        back_populates="project",
+        cascade="all, delete-orphan",
+    )
+
+
+
+# =========================================================
+# DOCUMENTATION RUN
+# =========================================================
+
+class DocumentationRun(Base):
+    __tablename__ = "documentation_runs"
+
+    id: Mapped[PyUUID] = mapped_column(
+        UUID(as_uuid=True),
+        primary_key=True,
+        default=uuid4,
+        index=True,
+    )
+
+    project_id: Mapped[PyUUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey(
+            "projects.id",
+            ondelete="CASCADE",
+        ),
+        nullable=False,
+        index=True,
+    )
+
+    docstrings_count: Mapped[int] = mapped_column(
+        Integer,
+        nullable=False,
+        default=0,
+    )
+
+    comments_count: Mapped[int] = mapped_column(
+        Integer,
+        nullable=False,
+        default=0,
+    )
+
+    readme_count: Mapped[int] = mapped_column(
+        Integer,
+        nullable=False,
+        default=0,
+    )
+
+    functions_count: Mapped[int] = mapped_column(
+        Integer,
+        nullable=False,
+        default=0,
+    )
+
+    classes_count: Mapped[int] = mapped_column(
+        Integer,
+        nullable=False,
+        default=0,
+    )
+
+    methods_count: Mapped[int] = mapped_column(
+        Integer,
+        nullable=False,
+        default=0,
+    )
+
+    modules_count: Mapped[int] = mapped_column(
+        Integer,
+        nullable=False,
+        default=0,
+    )
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
+    )
+
+    project = relationship(
+        "Project",
+        back_populates="documentation_runs",
+    )
+
+# =========================================================
+# DOCUMENTATION BATCH
+# =========================================================
+
+class DocumentationBatch(Base):
+    __tablename__ = "documentation_batches"
+
+    id: Mapped[PyUUID] = mapped_column(
+        UUID(as_uuid=True),
+        primary_key=True,
+        default=uuid4,
+        index=True,
+    )
+
+    job_id: Mapped[str] = mapped_column(
+        String(100),
+        nullable=False,
+        index=True,
+    )
+
+    project_id: Mapped[PyUUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey(
+            "projects.id",
+            ondelete="CASCADE",
+        ),
+        nullable=True,
+        index=True,
+    )
+
+    batch_id: Mapped[int] = mapped_column(
+        Integer,
+        nullable=False,
+    )
+
+    total_batches: Mapped[int] = mapped_column(
+        Integer,
+        nullable=False,
+    )
+
+    status: Mapped[str] = mapped_column(
+        String(30),
+        nullable=False,
+        default="completed",
+    )
+
+    files: Mapped[list] = mapped_column(
+        JSONB,
+        nullable=False,
+        default=list,
+    )
+
+    changes: Mapped[list] = mapped_column(
+        JSONB,
+        nullable=False,
+        default=list,
+    )
+
+    readme: Mapped[str | None] = mapped_column(
+        Text,
+        nullable=True,
+    )
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
+    )
+
+    __table_args__ = (
+        UniqueConstraint(
+            "job_id",
+            "batch_id",
+            name="uq_documentation_batch_job_batch",
+        ),
     )

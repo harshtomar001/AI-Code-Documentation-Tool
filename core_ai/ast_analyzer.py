@@ -1,4 +1,4 @@
-import ast
+﻿import ast
 
 from .models.analysis import (
     AnalysisResult,
@@ -12,7 +12,6 @@ from .models.scanner import SourceFile
 
 class ASTAnalyzer:
     def analyze(self, files: list[SourceFile]) -> AnalysisResult:
-
         analyzed_files = []
 
         for file in files:
@@ -46,7 +45,6 @@ class ASTAnalyzer:
         return AnalysisResult(files=analyzed_files)
 
     def _analyze_function(self, node):
-
         return FunctionAnalysis(
             name=node.name,
             line_start=node.lineno,
@@ -57,7 +55,6 @@ class ASTAnalyzer:
         )
 
     def _analyze_class(self, node):
-
         methods = []
 
         for child in node.body:
@@ -74,7 +71,6 @@ class ASTAnalyzer:
         )
 
     def _analyze_method(self, node):
-
         return MethodAnalysis(
             name=node.name,
             line_start=node.lineno,
@@ -84,11 +80,35 @@ class ASTAnalyzer:
             is_public=not node.name.startswith("_"),
         )
 
-    def _get_parameters(self, node):
+    def _get_parameters(self, node) -> list[str]:
+        """Extract every parameter from a Python function signature."""
 
         parameters = []
+        arguments = node.args
 
-        for argument in node.args.args:
+        # Positional-only parameters:
+        # def func(a, /, b)
+        for argument in arguments.posonlyargs:
             parameters.append(argument.arg)
+
+        # Normal positional / keyword parameters:
+        # def func(a, b)
+        for argument in arguments.args:
+            parameters.append(argument.arg)
+
+        # *args:
+        # def func(*args)
+        if arguments.vararg is not None:
+            parameters.append(arguments.vararg.arg)
+
+        # Keyword-only parameters:
+        # def func(*, option)
+        for argument in arguments.kwonlyargs:
+            parameters.append(argument.arg)
+
+        # **kwargs:
+        # def func(**kwargs)
+        if arguments.kwarg is not None:
+            parameters.append(arguments.kwarg.arg)
 
         return parameters

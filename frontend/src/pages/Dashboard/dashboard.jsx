@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { getCurrentUser } from "../../api/auth";
-import { getProjects, createProject as createProjectApi } from "../../api/projects";
-// import Sidebar from "./components/Sidebar";
+import {getProjects, createProject as createProjectApi, deleteProject} from "../../api/projects";
+import { getDocumentationRuns } from "../../api/dashboard";
 import Topbar from "./components/Topbar";
 import ActionCards from "./components/ActionCards";
 import RecentProjects from "./components/RecentProjects";
@@ -50,41 +50,196 @@ function getGitHubMessage() {
   return "";
 }
 
+function filterRunsByPeriod(runs, period) {
+  const now = new Date();
+
+  return runs.filter((run) => {
+    if (!run.created_at) {
+      return false;
+    }
+
+    const runDate = new Date(run.created_at);
+
+    if (Number.isNaN(runDate.getTime())) {
+      return false;
+    }
+
+    if (period === "This month") {
+      return (
+        runDate.getFullYear() === now.getFullYear() &&
+        runDate.getMonth() === now.getMonth()
+      );
+    }
+
+    if (period === "Last month") {
+      const lastMonth = new Date(
+        now.getFullYear(),
+        now.getMonth() - 1,
+        1
+      );
+
+      return (
+        runDate.getFullYear() === lastMonth.getFullYear() &&
+        runDate.getMonth() === lastMonth.getMonth()
+      );
+    }
+
+    if (period === "Last 3 months") {
+      const startDate = new Date(
+        now.getFullYear(),
+        now.getMonth() - 2,
+        1
+      );
+
+      return runDate >= startDate && runDate <= now;
+    }
+
+    if (period === "This year") {
+      return runDate.getFullYear() === now.getFullYear();
+    }
+
+    return true;
+  });
+}
+
 export default function Dashboard() {
+
   const navigate = useNavigate();
 
-  const [user, setUser] =
-    useState(null);
+  const [user, setUser] = useState(null);
 
-  const [loadingUser, setLoadingUser] =
-    useState(true);
+  const [loadingUser, setLoadingUser] = useState(true);
 
   const [projects, setProjects] = useState([]);
+
   const [loadingProjects, setLoadingProjects] = useState(true);
 
-  const [reviews, setReviews] =
-    useState(reviewsData);
+  const [reviews, setReviews] = useState(reviewsData);
 
-  const [search, setSearch] =
-    useState("");
+  const [search, setSearch] = useState("");
 
-  const [activeMenu, setActiveMenu] =
-    useState("Dashboard");
+  const [activeMenu, setActiveMenu] = useState("Dashboard");
 
-  const [darkMode, setDarkMode] =
-    useState(true);
+  const [darkMode, setDarkMode] = useState(true);
 
-  const [showProfile, setShowProfile] =
-    useState(false);
+  const [showProfile, setShowProfile] = useState(false);
 
-  const [showNotifications, setShowNotifications] =
-    useState(false);
+  const [showNotifications, setShowNotifications] = useState(false);
 
-  const [month, setMonth] =
-    useState("This month");
+  const [month, setMonth] = useState("This month");
 
-  const [message, setMessage] =
-    useState(getGitHubMessage);
+  const [message, setMessage] = useState(getGitHubMessage);
+
+
+  // for the documentation overview
+
+    const [documentationRuns, setDocumentationRuns] = useState([]);
+
+    const [documentationData, setDocumentationData] = useState({
+      docstrings: 0,
+      comments: 0,
+      readme: 0,
+      reviews: 0,
+    });
+
+    const [documentationLoading, setDocumentationLoading] = useState(true);
+
+
+    //  handle clicks of the recent project
+
+    const handleViewDocumentation = (project) => {
+      navigate(`/projects/${project.id}/documentation`);
+    };
+
+    const handleGenerateDocumentation = (project) => {
+      navigate(`/projects/${project.id}/generate`);
+    };
+
+    const handleProjectSettings = (project) => {
+      navigate(`/projects/${project.id}/settings`);
+    };
+
+    const handleDeleteProject = async (projectOrId) => {
+      try {
+        const projectId =
+          typeof projectOrId === "object"
+            ? projectOrId?.id
+            : projectOrId;
+
+        if (!projectId) {
+          console.error("Cannot delete project: missing project ID", projectOrId);
+          return;
+        }
+
+        console.log("Deleting project:", projectId);
+
+        const  token = getToken();
+
+        await deleteProject(token ,projectId);
+
+        setProjects((currentProjects) =>
+          currentProjects.filter(
+            (project) => project.id !== projectId
+          )
+        );
+      } catch (error) {
+        console.error("Failed to delete project:", error);
+      }
+    };
+
+  useEffect(() => {
+  const fetchDocumentationRuns = async () => {
+    try {
+      setDocumentationLoading(true);
+
+      const runs = await getDocumentationRuns();
+
+      setDocumentationRuns(runs);
+    } catch (error) {
+      console.error(
+        "Failed to fetch documentation runs:",
+        error
+      );
+
+      setDocumentationRuns([]);
+    } finally {
+      setDocumentationLoading(false);
+    }
+  };
+
+  fetchDocumentationRuns();
+}, []);
+
+  useEffect(() => {
+  const filteredRuns = filterRunsByPeriod(
+    documentationRuns,
+    month
+  );
+
+  const totals = filteredRuns.reduce(
+    (acc, run) => ({
+      docstrings:
+        acc.docstrings + (run.docstrings_count ?? 0),
+
+      comments:
+        acc.comments + (run.comments_count ?? 0),
+
+      readme:
+        acc.readme + (run.readme_count ?? 0),
+
+      reviews: acc.reviews,
+    }),
+    {
+      docstrings: 0,
+      comments: 0,
+      readme: 0,
+      reviews: 0,
+    }
+  );
+
+  setDocumentationData(totals);
+
+  }, [documentationRuns, month]);
 
   /* =========================================================
      LOAD PROJECTS FROM BACKEND
@@ -589,7 +744,6 @@ export default function Dashboard() {
                 projects={filteredProjects.slice(0, 3)}
                 darkMode={darkMode}
                 loading={loadingProjects}
-                
                 onOpenProject={(project) => {
                   if (project.source_type === "github" && project.github_owner && project.github_repo) {
                     navigate(
@@ -599,7 +753,7 @@ export default function Dashboard() {
                   }
 
                   navigate(
-                    `/repository/uploaded/${encodeURIComponent(project.name)}`,
+                    `/repository/uploaded/${encodeURIComponent(project.id)}`,
                     {
                       state: {
                         source: "saved-upload",
@@ -611,6 +765,11 @@ export default function Dashboard() {
                   );
                 }}
                 onViewAll={() => navigate("/projects")}
+                onViewDocumentation={handleViewDocumentation}
+                onGenerateDocumentation={handleGenerateDocumentation}
+                onProjectSettings={handleProjectSettings}
+                onDeleteProject={handleDeleteProject}
+
               />
 
               <ReviewRequired
@@ -632,26 +791,18 @@ export default function Dashboard() {
             </div>
 
             <div className="flex flex-col gap-[17px]">
-              <DocumentationOverview
-                month={
-                  month
-                }
-                setMonth={
-                  setMonth
-                }
-                reviewsCount={
-                  reviews.length
-                }
-                darkMode={
-                  darkMode
-                }
-              />
+                  <DocumentationOverview
+                    month={month}
+                    setMonth={setMonth}
+                    data={documentationData}
+                    loading={documentationLoading}
+                    darkMode={darkMode}
+                  />
 
-              <DocumentationChart
-                darkMode={
-                  darkMode
-                }
-              />
+                 <DocumentationChart
+                  data={documentationData}
+                  darkMode={darkMode}
+                />
             </div>
           </section>
 
@@ -679,3 +830,4 @@ export default function Dashboard() {
     </div>
   );
 }
+

@@ -2,11 +2,11 @@ import { REPO, PR_BRANCH, STEP_DEFS, FINDINGS } from '../data/constants.js';
 import { fmtClock, fakeSha, shortPath, fmtN } from '../utils/format.js';
 import { makeBatches, pendingHunks, pendingCount, changesIn } from './helpers.js';
 import {
-  startLocalJob,
+  startProjectJob,
   fetchJob,
   fetchJobBatches,
   subscribeToJob,
-} from '../api/docPilotJobs.js';
+} from "../api/docPilotJobs.js";
 
 import { normalizeBatches } from '../utils/batchAdapter.js';
 
@@ -103,56 +103,65 @@ export class Engine {
 
     /* ---------- real backend job ---------- */
 
-  async startRealJob(file, repositoryName = "repository", token = null) {
-    this.stopRealJob();
+  async startProjectJob(
+      projectId,
+      repositoryName = "repository",
+      token = null
+    ) {
+      this.stopRealJob();
 
-    this.realJob = true;
-    this.repositoryName = repositoryName;
-    this.jobError = null;
-    this.jobStatus = "starting";
-    this.batches = [];
-    this.totalBatches = 0;
-    this.events = [];
-    this.steps = Object.fromEntries(
-      STEP_DEFS.map((d) => [
-        d.key,
-        {
-          state: "pending",
-          detail: d.idle,
-          pct: 0,
-          t0: null,
-          t1: null,
-          lines: [],
-        },
-      ]),
-    );
+      this.realJob = true;
+      this.repositoryName = repositoryName;
+      this.jobError = null;
+      this.jobStatus = "starting";
+      this.batches = [];
+      this.totalBatches = 0;
+      this.events = [];
+      this.steps = Object.fromEntries(
+        STEP_DEFS.map((d) => [
+          d.key,
+          {
+            state: "pending",
+            detail: d.idle,
+            pct: 0,
+            t0: null,
+            t1: null,
+            lines: [],
+          },
+        ]),
+      );
 
-    this.generating = false;
-    this.finished = false;
-    this.aside = "Starting documentation job";
-    this.emit();
-
-    try {
-      const job = await startLocalJob(file, repositoryName, token);
-
-      this.jobId = job.job_id;
-      this.jobStatus = job.status;
-      this.aside = job.message;
-
-      this.subscribeRealJob();
+      this.generating = false;
+      this.finished = false;
+      this.aside = "Starting documentation job";
       this.emit();
 
-      await this.refreshRealJob();
-    } catch (error) {
-      this.jobStatus = "failed";
-      this.jobError =
-        error?.response?.data?.detail ||
-        error?.message ||
-        "Failed to start documentation job";
-      this.aside = this.jobError;
-      this.emit();
+      try {
+        const job = await startProjectJob(
+          projectId,
+          repositoryName,
+          token
+        );
+
+        this.jobId = job.job_id;
+        this.jobStatus = job.status;
+        this.aside = job.message;
+
+        this.subscribeRealJob();
+        this.emit();
+
+        await this.refreshRealJob();
+      } catch (error) {
+        this.jobStatus = "failed";
+        this.jobError =
+          error?.response?.data?.detail ||
+          error?.message ||
+          "Failed to start documentation job";
+
+        this.aside = this.jobError;
+        this.emit();
+      }
     }
-  }
 
   subscribeRealJob() {
     if (!this.jobId) return;
@@ -311,21 +320,44 @@ export class Engine {
   }
 
   /* ---------- lifecycle ---------- */
-  start() {
-    if (this.loopId) return;
-    this.last = performance.now();
-    // setInterval (not rAF) so the simulation and UI keep updating in background tabs
-    this.loopId = setInterval(() => this.frame(performance.now()), 33);
-    this._onVisible = () => {
-      if (document.visibilityState === 'visible') {
-        this.last = performance.now();
-        this.emit();
-      }
-    };
-    document.addEventListener('visibilitychange', this._onVisible);
+  start({ simulate = true } = {}) {
+  if (this.loopId) return;
+
+  this.last = performance.now();
+
+  // setInterval (not rAF) so the UI keeps updating in background tabs.
+  this.loopId = setInterval(
+    () => this.frame(performance.now()),
+    33
+  );
+
+  this._onVisible = () => {
+    if (document.visibilityState === "visible") {
+      this.last = performance.now();
+      this.emit();
+    }
+  };
+
+  document.addEventListener(
+    "visibilitychange",
+    this._onVisible
+  );
+
+  if (simulate) {
     this.restart();
+  } else {
+    this.runId++;
+    this.timers.forEach(clearTimeout);
+    this.timers.clear();
+    this.waiters = [];
+    this.tweens = [];
+
+    this.init();
+    this.emit();
   }
-  stop() {
+}
+
+stop() {
     clearInterval(this.loopId);
     this.loopId = 0;
     clearTimeout(this._emitTimer);

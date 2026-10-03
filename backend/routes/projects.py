@@ -1,3 +1,4 @@
+from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -119,7 +120,7 @@ async def list_projects(
 
 @router.get("/{project_id}")
 async def get_project(
-    project_id: int,
+    project_id: UUID,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
@@ -143,7 +144,7 @@ async def get_project(
 
 @router.delete("/{project_id}")
 async def delete_project(
-    project_id: int,
+    project_id: UUID,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):

@@ -1,4 +1,4 @@
-"""Core AI analysis pipeline.
+﻿"""Core AI analysis pipeline.
 
 This module orchestrates the complete code documentation analysis workflow:
 
@@ -210,7 +210,10 @@ class CorePipeline:
                 message="Creating documentation batches",
             )
 
-            batches = self.batcher.create_batches(sanitized_files)
+            batches = self.batcher.create_batches(
+                sanitized_files,
+                analysis=analysis,
+            )
 
             self._emit(
                 stage="batching",
@@ -330,3 +333,4 @@ class CorePipeline:
 
         except Exception as exc:
             raise PipelineError("Core AI pipeline failed") from exc
+

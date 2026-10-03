@@ -3,6 +3,7 @@ import {
   useMemo,
   useState,
 } from "react";
+
 import {
   useLocation,
   useNavigate,
@@ -13,87 +14,63 @@ import {
   getGitHubFile,
   getGitHubRepository,
 } from "../../api/github";
-import { getProjectFiles } from "../../api/projectStore";
+
+import {
+  getProject,
+  getProjectFiles,
+  getProjectFileContent,
+} from "../../api/projectStore";
+import {getToken} from "../../utils/getToken.js";
+import {formatDate} from "../../utils/formatDate.js";
+import {formatFileSize} from "../../utils/formatFileSize.js";
+import RepositoryLoading from "./RepositoryLoading";
+
+
 const EMPTY_FILES = [];
 
-/* =========================================================
-   TOKEN
-   ========================================================= */
-
-function getToken() {
-  return (
-    localStorage.getItem("access_token") ||
-    sessionStorage.getItem("access_token")
-  );
-}
-
-/* =========================================================
-   DATE FORMAT
-   ========================================================= */
-
-function formatDate(date) {
-  if (!date) {
-    return "—";
-  }
-
-  const parsedDate = new Date(date);
-
-  if (Number.isNaN(parsedDate.getTime())) {
-    return "—";
-  }
-
-  return parsedDate.toLocaleDateString(
-    "en-IN",
-    {
-      day: "2-digit",
-      month: "short",
-      year: "numeric",
-    }
-  );
-}
-
-/* =========================================================
-   SIZE FORMAT
-   GitHub repo size is returned in KB
-   ========================================================= */
-
-function formatRepoSize(size) {
-  if (!size || size <= 0) {
-    return "0 KB";
-  }
-
-  if (size >= 1024) {
-    return `${(
-      size / 1024
-    ).toFixed(1)} MB`;
-  }
-
-  return `${size} KB`;
-}
-
-/* =========================================================
-   FILE SIZE FORMAT
-   ========================================================= */
-
-function formatFileSize(size) {
-  if (!size || size <= 0) {
+function getUploadedFilePath(file) {
+  if (!file) {
     return "";
   }
 
-  if (size >= 1024 * 1024) {
-    return `${(
-      size /
-      (1024 * 1024)
-    ).toFixed(1)} MB`;
+  /* -------------------------------------------------------
+     Persisted backend file
+     ------------------------------------------------------- */
+
+  if (file.path) {
+    return file.path;
   }
 
-  if (size >= 1024) {
-    return `${(
-      size / 1024
-    ).toFixed(1)} KB`;
+  /* -------------------------------------------------------
+     Fresh browser File
+     ------------------------------------------------------- */
+
+  const rawPath =
+    file.webkitRelativePath ||
+    file.name ||
+    "";
+
+  if (!rawPath) {
+    return "";
   }
 
-  return `${size} B`;
+  const parts = rawPath
+    .split("/")
+    .filter(Boolean);
+
+  /*
+   * Browser folder upload:
+   *
+   * ProjectName/src/main.py
+   *
+   * becomes:
+   *
+   * src/main.py
+   */
+
+  return parts.length > 1
+    ? parts.slice(1).join("/")
+    : parts[0];
 }
 
 /* =========================================================
@@ -178,53 +155,68 @@ function buildUploadedFileTree(files) {
 
   for (const file of files) {
     const relativePath =
-      file.webkitRelativePath ||
-      file.name ||
-      "";
+      getUploadedFilePath(file);
 
     if (!relativePath) {
       continue;
     }
 
-    const rawParts = relativePath
+    const parts = relativePath
       .split("/")
       .filter(Boolean);
 
-    // The first path segment is the selected root folder.
-    const parts =
-      rawParts.length > 1
-        ? rawParts.slice(1)
-        : rawParts;
-
     let current = root;
 
-    parts.forEach((part, index) => {
-      const isLast =
-        index === parts.length - 1;
+    parts.forEach(
+      (part, index) => {
+        const isLast =
+          index ===
+          parts.length - 1;
 
-      let existing = current.find(
-        (item) => item.name === part
-      );
+        let existing =
+          current.find(
+            (item) =>
+              item.name === part
+          );
 
-      if (!existing) {
-        existing = {
-          name: part,
-          path: parts
-            .slice(0, index + 1)
-            .join("/"),
-          type: isLast ? "blob" : "tree",
-          size: isLast ? file.size || 0 : 0,
-          file: isLast ? file : null,
-          children: [],
-        };
+        if (!existing) {
+          existing = {
+            name: part,
+            path: parts
+              .slice(0, index + 1)
+              .join("/"),
+            type: isLast
+              ? "blob"
+              : "tree",
+            size: isLast
+              ? file.size || 0
+              : 0,
 
-        current.push(existing);
+            /*
+             * Keep the original object.
+             *
+             * Fresh upload:
+             * Browser File
+             *
+             * After refresh:
+             * Backend metadata object
+             */
+            file: isLast
+              ? file
+              : null,
+
+            children: [],
+          };
+
+          current.push(existing);
+        }
+
+        if (!isLast) {
+          current =
+            existing.children;
+        }
       }
-
-      if (!isLast) {
-        current = existing.children;
-      }
-    });
+    );
   }
 
   return root;
@@ -414,10 +406,13 @@ function UploadedFileTree({
     useState({});
 
   const toggleFolder = (path) => {
-    setOpenFolders((current) => ({
-      ...current,
-      [path]: !current[path],
-    }));
+    setOpenFolders(
+      (current) => ({
+        ...current,
+        [path]:
+          !current[path],
+      })
+    );
   };
 
   if (!items?.length) {
@@ -431,15 +426,25 @@ function UploadedFileTree({
           item.type === "tree";
 
         const isOpen =
-          !!openFolders[item.path];
+          !!openFolders[
+            item.path
+          ];
+
+        /* ===================================================
+           FOLDER
+           =================================================== */
 
         if (isFolder) {
           return (
-            <div key={item.path}>
+            <div
+              key={item.path}
+            >
               <button
                 type="button"
                 onClick={() =>
-                  toggleFolder(item.path)
+                  toggleFolder(
+                    item.path
+                  )
                 }
                 className="
                   flex
@@ -462,7 +467,9 @@ function UploadedFileTree({
                 }}
               >
                 <span className="w-3 shrink-0 text-center">
-                  {isOpen ? "▾" : "▸"}
+                  {isOpen
+                    ? "▾"
+                    : "▸"}
                 </span>
 
                 <span className="shrink-0">
@@ -474,24 +481,40 @@ function UploadedFileTree({
                 </span>
               </button>
 
-              {isOpen && item.children?.length > 0 && (
-                <UploadedFileTree
-                  items={item.children}
-                  level={level + 1}
-                  onFileClick={onFileClick}
-                  selectedPath={selectedPath}
-                />
-              )}
+              {isOpen &&
+                item.children?.length >
+                  0 && (
+                  <UploadedFileTree
+                    items={
+                      item.children
+                    }
+                    level={
+                      level + 1
+                    }
+                    onFileClick={
+                      onFileClick
+                    }
+                    selectedPath={
+                      selectedPath
+                    }
+                  />
+                )}
             </div>
           );
         }
+
+        /* ===================================================
+           FILE
+           =================================================== */
 
         return (
           <button
             key={item.path}
             type="button"
             onClick={() =>
-              onFileClick(item.file)
+              onFileClick(
+                item.file
+              )
             }
             className={`
               flex
@@ -505,7 +528,8 @@ function UploadedFileTree({
               text-[13px]
               transition
               ${
-                selectedPath === item.path
+                selectedPath ===
+                item.path
                   ? "bg-[#242729] text-white"
                   : "text-[#aeb4b9] hover:bg-[#202427] hover:text-white"
               }
@@ -526,7 +550,9 @@ function UploadedFileTree({
 
             {item.size > 0 && (
               <span className="shrink-0 text-[9px] text-[#666e74]">
-                {formatFileSize(item.size)}
+                {formatFileSize(
+                  item.size
+                )}
               </span>
             )}
           </button>
@@ -540,37 +566,98 @@ function UploadedFileTree({
    LOCAL README
    ========================================================= */
 
-function LocalReadme({ file }) {
+function LocalReadme({
+  file,
+  projectId,
+}) {
   const [content, setContent] =
     useState("Loading README...");
 
   useEffect(() => {
     let mounted = true;
 
-    if (!file) {
-      setContent(
-        "No README file found in this uploaded project."
-      );
-      return undefined;
-    }
+    const loadReadme = async () => {
+      if (!file) {
+        setContent(
+          "No README file found in this uploaded project."
+        );
 
-    file
-      .text()
-      .then((value) => {
-        if (mounted) {
-          setContent(value);
+        return;
+      }
+
+      try {
+        let value;
+
+        /* ---------------------------------------------------
+           Fresh browser upload
+           --------------------------------------------------- */
+
+        if (
+          typeof file.text ===
+          "function"
+        ) {
+          value =
+            await file.text();
         }
-      })
-      .catch(() => {
-        if (mounted) {
-          setContent("Could not read README file.");
+
+        /* ---------------------------------------------------
+           Persisted backend project
+           --------------------------------------------------- */
+
+        else {
+          if (!projectId) {
+            throw new Error(
+              "Uploaded project ID is missing."
+            );
+          }
+
+          const path =
+            getUploadedFilePath(
+              file
+            );
+
+          if (!path) {
+            throw new Error(
+              "README path is missing."
+            );
+          }
+
+          value =
+            await getProjectFileContent(
+              projectId,
+              path
+            );
         }
-      });
+
+        if (mounted) {
+          setContent(
+            value ||
+              "README is empty."
+          );
+        }
+      } catch (error) {
+        console.error(
+          "Could not read README:",
+          error
+        );
+
+        if (mounted) {
+          setContent(
+            "Could not read README file."
+          );
+        }
+      }
+    };
+
+    loadReadme();
 
     return () => {
       mounted = false;
     };
-  }, [file]);
+  }, [
+    file,
+    projectId,
+  ]);
 
   return (
     <pre className="whitespace-pre-wrap break-words text-[13px] leading-6 text-[#bfc4c8]">
@@ -590,33 +677,36 @@ export default function Repository() {
   const {
     owner,
     repo,
-    projectName: uploadedRouteProjectName,
+    projectId:
+      uploadedRouteProjectId,
   } = useParams();
 
   /*
-   * Uploaded projects use /repository/uploaded/:projectName
-   * while GitHub repositories use /repository/:owner/:repo.
+   * Uploaded projects:
+   *
+   * /repository/uploaded/:projectId
+   *
+   * GitHub repositories:
+   *
+   * /repository/:owner/:repo
    */
+
   const isUploadedRoute =
-    Boolean(uploadedRouteProjectName) ||
+    Boolean(
+      uploadedRouteProjectId
+    ) ||
     owner === "uploaded";
 
-  const isUploadedProject =
-    isUploadedRoute &&
-    (location.state?.source === "upload" ||
-      location.state?.source === "saved-upload");
+  const isUploadedProject = isUploadedRoute;
 
-  const routeUploadedFiles = Array.isArray(
-    location.state?.files
-  )
-    ? location.state.files
-    : EMPTY_FILES;
+  const routeUploadedFiles =
+    Array.isArray(
+      location.state?.files
+    )
+      ? location.state.files
+      : EMPTY_FILES;
 
-  const uploadedProjectName =
-    location.state?.projectName ||
-    (uploadedRouteProjectName
-      ? decodeURIComponent(uploadedRouteProjectName)
-      : "Uploaded Project");
+
 
   const repositoryOwner =
     decodeURIComponent(
@@ -630,9 +720,6 @@ export default function Repository() {
 
   /* =======================================================
      SCROLL TO TOP
-
-     This fixes the issue where repository page opens
-     somewhere in the middle/bottom.
      ======================================================= */
 
   useEffect(() => {
@@ -644,6 +731,7 @@ export default function Repository() {
   }, [
     owner,
     repo,
+    uploadedRouteProjectId,
   ]);
 
   /* =======================================================
@@ -674,11 +762,15 @@ export default function Repository() {
   const [fileError, setFileError] =
     useState("");
 
-  const [localReadmeFile, setLocalReadmeFile] =
-    useState(null);
+  const [
+    localReadmeFile,
+    setLocalReadmeFile,
+  ] = useState(null);
 
-  const [resolvedUploadedFiles, setResolvedUploadedFiles] =
-    useState([]);
+  const [
+    resolvedUploadedFiles,
+    setResolvedUploadedFiles,
+  ] = useState([]);
 
   const uploadedFiles =
     routeUploadedFiles.length > 0
@@ -708,126 +800,95 @@ export default function Repository() {
           return;
         }
 
-        /* -----------------------------------------------------
+        /* ===================================================
            LOCAL UPLOAD
-           ----------------------------------------------------- */
+           =================================================== */
 
         if (isUploadedRoute) {
-          if (!isUploadedProject) {
-            setError(
-              "This uploaded project is no longer available. Please upload the folder again."
-            );
-            setLoading(false);
-            return;
+          if (!uploadedRouteProjectId) {
+            throw new Error("Uploaded project ID is missing.");
           }
 
-          let filesForProject = routeUploadedFiles;
+          const project = await getProject(uploadedRouteProjectId);
 
-          if (
-            filesForProject.length === 0 &&
-            location.state?.projectId
-          ) {
-            try {
-              filesForProject = await getProjectFiles(
-                location.state.projectId
-              );
+         const filesForProject = await getProjectFiles(uploadedRouteProjectId);
 
-              if (!cancelled) {
-                setResolvedUploadedFiles(filesForProject);
-              }
-            } catch (fileLoadError) {
-              console.error(
-                "Could not restore uploaded project files:",
-                fileLoadError
-              );
-            }
-          }
+         console.log("BACKEND FILES FOR PROJECT:", filesForProject);
 
-          if (filesForProject.length === 0) {
-            setError(
-              "This uploaded project's files are not available in this browser. Please upload the folder again."
-            );
-            setLoading(false);
-            return;
-          }
+         if (!filesForProject.length) {
+              throw new Error("This uploaded project has no files.");
+         }
 
-          const localFiles = filesForProject.map(
-            (file) => ({
-              path: (
-                file.webkitRelativePath ||
-                file.name ||
-                ""
-              )
-                .split("/")
-                .slice(1)
-                .join("/"),
-              type: "blob",
-              size: file.size || 0,
+         setResolvedUploadedFiles(filesForProject);
+
+          let repoSize = 0;
+
+          const localFiles = filesForProject
+            .map((file) => {
+
+              repoSize +=file.size;
+
+              const path = getUploadedFilePath(file);
+
+              if (!path) return null;
+
+              return {
+                path,
+                type: "blob",
+                size: file.size || 0,
+                file: file.path ? null : file,
+              };
             })
-          ).filter((file) => file.path);
+            .filter(Boolean);
 
-          const readmeFile = filesForProject.find(
-            (file) => {
-              const fileName = (
-                file.name || ""
-              ).toLowerCase();
+          const readmeFile = filesForProject.find((file) => {
+            const path = getUploadedFilePath(file);
 
-              return (
-                fileName === "readme.md" ||
-                fileName === "readme.txt"
-              );
-            }
-          );
+            const fileName =
+              path
+                .split("/")
+                .filter(Boolean)
+                .pop()
+                ?.toLowerCase() || "";
 
-          if (!cancelled) {
-            setData({
-              repository: {
-                name: uploadedProjectName,
-                full_name: uploadedProjectName,
-                owner: "Local Upload",
-                description:
-                  "Project uploaded from your computer.",
-                private: true,
-                html_url: null,
-                default_branch: null,
-                language: null,
-                stars: 0,
-                forks: 0,
-                open_issues: 0,
-                size:
-                  filesForProject.reduce(
-                    (total, file) =>
-                      total + (file.size || 0),
-                    0
-                  ) / 1024,
-                updated_at: new Date().toISOString(),
-                license: null,
-              },
-              files: localFiles,
-              commits: [],
-              readme: null,
-            });
+            return fileName === "readme.md" || fileName === "readme.txt";
+          });
 
-            setLocalReadmeFile(
-              readmeFile || null
-            );
+          setData({
+           repository: {
+              name: project.name,
+              full_name: project.name,
+              description:
+                project.description ||
+                "Project uploaded from your computer.",
+              html_url: null,
+              language: project.language || "Unknown",
+              stars: 0,
+              forks: 0,
+              open_issues: 0,
+              size: repoSize,
+              default_branch: null,
+              updated_at: project.updated_at,
+            },
+            files: localFiles,
+            commits: [],
+            readme: null,
+            project,
+          });
 
-            if (readmeFile) {
-              const readmePath =
-                (readmeFile.webkitRelativePath ||
-                  readmeFile.name ||
-                  "")
-                  .split("/")
-                  .slice(1)
-                  .join("/");
+          setLocalReadmeFile(readmeFile || null);
 
-              setSelectedPath(readmePath);
-            }
+          if (readmeFile) {
+            setSelectedPath(getUploadedFilePath(readmeFile));
           }
 
           setLoading(false);
           return;
-        }
+}
+
+        /* ===================================================
+           GITHUB REPOSITORY
+           =================================================== */
 
         if (
           !repositoryOwner ||
@@ -905,38 +966,47 @@ export default function Repository() {
       cancelled = true;
     };
   }, [
-    navigate,
-    repositoryOwner,
-    repositoryName,
-    uploadedRouteProjectName,
-    isUploadedRoute,
-    isUploadedProject,
-    uploadedFiles,
-    uploadedProjectName,
-  ]);
+      navigate,
+      repositoryOwner,
+      repositoryName,
+      uploadedRouteProjectId,
+      isUploadedRoute,
+    ]);
 
   /* =======================================================
      BUILD TREE
      ======================================================= */
 
-  const fileTree = useMemo(() => {
-    return buildFileTree(
-      data?.files || []
-    );
-  }, [data]);
+  const fileTree = useMemo(
+    () => {
+      return buildFileTree(
+        data?.files || []
+      );
+    },
+    [data]
+  );
 
-  const uploadedFileTree = useMemo(() => {
-    if (!isUploadedProject) {
-      return [];
-    }
+  const uploadedFileTree =
+    useMemo(
+      () => {
+        if (
+          !isUploadedProject
+        ) {
+          return [];
+        }
 
-    return buildUploadedFileTree(
-      uploadedFiles
+        return buildUploadedFileTree(
+          uploadedFiles
+        );
+      },
+      [
+        isUploadedProject,
+        uploadedFiles,
+      ]
     );
-  }, [isUploadedProject, uploadedFiles]);
 
   /* =======================================================
-     OPEN FILE
+     OPEN GITHUB FILE
      ======================================================= */
 
   const openFile = async (
@@ -1008,62 +1078,98 @@ export default function Repository() {
      OPEN UPLOADED FILE
      ======================================================= */
 
-  const openUploadedFile = async (
-    file
-  ) => {
-    if (!file) {
-      return;
-    }
+  const openUploadedFile =
+    async (file) => {
+      try {
+        const path =
+          getUploadedFilePath(
+            file
+          );
 
-    const relativePath =
-      (file.webkitRelativePath ||
-        file.name ||
-        "")
-        .split("/")
-        .slice(1)
-        .join("/") ||
-      file.name ||
-      "";
+        if (!path) {
+          return;
+        }
 
-    setSelectedPath(relativePath);
-    setActiveTab("files");
-    setFileLoading(true);
-    setFileError("");
-    setFileContent("");
+        setSelectedPath(path);
 
-    try {
-      const content = await file.text();
-      setFileContent(content);
-    } catch (err) {
-      console.error(
-        "Uploaded file reading error:",
-        err
-      );
+        setActiveTab("files");
 
-      setFileError(
-        "Could not read this file."
-      );
-    } finally {
-      setFileLoading(false);
-    }
-  };
+        setFileLoading(true);
+
+        setFileError("");
+
+        setFileContent("");
+
+        let content;
+
+        /* -------------------------------------------------
+           Fresh browser upload
+           ------------------------------------------------- */
+
+        if (
+          typeof file.text ===
+          "function"
+        ) {
+          content =
+            await file.text();
+        }
+
+        /* -------------------------------------------------
+           Persisted backend project
+           ------------------------------------------------- */
+
+        else {
+          if (
+            !uploadedRouteProjectId
+          ) {
+            throw new Error(
+              "Uploaded project ID is missing."
+            );
+          }
+
+          content =
+            await getProjectFileContent(
+              uploadedRouteProjectId,
+              path
+            );
+        }
+
+        setFileContent(
+          content ||
+            "No text content available."
+        );
+      } catch (error) {
+        console.error(
+          "Failed to open uploaded file:",
+          error
+        );
+
+        setFileError(
+          error.response?.data
+            ?.detail ||
+            error.message ||
+            "Could not load file."
+        );
+      } finally {
+        setFileLoading(false);
+      }
+    };
 
   /* =======================================================
      OPEN GITHUB
      ======================================================= */
 
-  const openGitHub =
-    () => {
-      if (
-        repository.html_url
-      ) {
-        window.open(
-          repository.html_url,
-          "_blank",
-          "noopener,noreferrer"
-        );
-      }
-    };
+  const openGitHub = () => {
+    if (
+      repository.html_url
+    ) {
+      window.open(
+        repository.html_url,
+        "_blank",
+        "noopener,noreferrer"
+      );
+    }
+  };
 
   /* =======================================================
      LOADING
@@ -1071,25 +1177,11 @@ export default function Repository() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#0d0f10] text-[#f2f3f4]">
-        <div className="flex min-h-screen items-center justify-center px-5">
-          <div className="text-center">
-            <div className="mb-4 text-[28px]">
-              ◌
-            </div>
-
-            <p className="text-[15px] text-[#b4bac0]">
-              Loading repository...
-            </p>
-
-            <p className="mt-1 text-[11px] text-[#646c72]">
-              {isUploadedProject
-                ? "Preparing uploaded project"
-                : "Fetching real data from GitHub"}
-            </p>
-          </div>
-        </div>
-      </div>
+      <RepositoryLoading
+        isUploadedProject={
+          isUploadedProject
+        }
+      />
     );
   }
 
@@ -1168,37 +1260,33 @@ export default function Repository() {
      REAL REPOSITORY DATA
      ======================================================= */
 
-  const repository =
-    data.repository || {};
+  const repository = data.repository || {};
 
-  const commits =
-    Array.isArray(
-      data.commits
-    )
-      ? data.commits
-      : [];
+  const commits = Array.isArray(data.commits) ? data.commits : [];
 
-  const readme =
-    isUploadedProject
-      ? null
-      : data.readme || null;
+  const readme = isUploadedProject ? null : data.readme || null;
 
   const files =
     isUploadedProject
       ? uploadedFiles
-          .map((file) => ({
-            path: (
-              file.webkitRelativePath ||
-              file.name ||
-              ""
-            )
-              .split("/")
-              .slice(1)
-              .join("/"),
-            type: "blob",
-            size: file.size || 0,
-          }))
-          .filter((file) => file.path)
+          .map((file) => {
+            const path =
+              getUploadedFilePath(
+                file
+              );
+
+            if (!path) {
+              return null;
+            }
+
+            return {
+              path,
+              type: "blob",
+              size:
+                file.size || 0,
+            };
+          })
+          .filter(Boolean)
       : Array.isArray(
           data.files
         )
@@ -1358,7 +1446,9 @@ export default function Repository() {
 
                 {repository.language && (
                   <span className="rounded-full border border-[#292d30] px-2.5 py-1 text-[10px] text-[#9ca3a9]">
-                    {repository.language}
+                    {
+                      repository.language
+                    }
                   </span>
                 )}
 
@@ -1373,7 +1463,9 @@ export default function Repository() {
 
                 {repository.license && (
                   <span className="rounded-full border border-[#292d30] px-2.5 py-1 text-[10px] text-[#9ca3a9]">
-                    {repository.license}
+                    {
+                      repository.license
+                    }
                   </span>
                 )}
               </div>
@@ -1473,7 +1565,7 @@ export default function Repository() {
             </p>
 
             <p className="mt-2 text-[22px] font-semibold">
-              {formatRepoSize(
+              {formatFileSize(
                 repository.size
               )}
             </p>
@@ -1556,7 +1648,12 @@ export default function Repository() {
                 {isUploadedProject ? (
                   localReadmeFile ? (
                     <LocalReadme
-                      file={localReadmeFile}
+                      file={
+                        localReadmeFile
+                      }
+                      projectId={
+                        uploadedRouteProjectId
+                      }
                     />
                   ) : (
                     <div>
@@ -1567,7 +1664,9 @@ export default function Repository() {
                   )
                 ) : readme ? (
                   <pre className="whitespace-pre-wrap break-words text-[13px] leading-6 text-[#bfc4c8]">
-                    {readme.content}
+                    {
+                      readme.content
+                    }
                   </pre>
                 ) : (
                   <div>
@@ -1618,13 +1717,17 @@ export default function Repository() {
                           className="border-b border-[#232729] pb-4 last:border-0 last:pb-0"
                         >
                           <p className="text-[13px] leading-5 text-[#d6dade]">
-                            {commit.message ||
-                              "No commit message"}
+                            {
+                              commit.message ||
+                              "No commit message"
+                            }
                           </p>
 
                           <p className="mt-1 text-[11px] text-[#747c82]">
-                            {commit.author ||
-                              "Unknown"}
+                            {
+                              commit.author ||
+                              "Unknown"
+                            }
                             {" • "}
                             {formatDate(
                               commit.date
@@ -1656,7 +1759,8 @@ export default function Repository() {
                 </h3>
 
                 <p className="mt-1 text-[11px] text-[#747c82]">
-                  {files.length} items from {
+                  {files.length} items from{" "}
+                  {
                     isUploadedProject
                       ? "local upload"
                       : "GitHub"
@@ -1666,22 +1770,34 @@ export default function Repository() {
 
               <div className="max-h-[680px] overflow-y-auto p-3">
                 {isUploadedProject ? (
-                  uploadedFileTree.length > 0 ? (
+                  uploadedFileTree.length >
+                  0 ? (
                     <UploadedFileTree
-                      items={uploadedFileTree}
-                      onFileClick={openUploadedFile}
-                      selectedPath={selectedPath}
+                      items={
+                        uploadedFileTree
+                      }
+                      onFileClick={
+                        openUploadedFile
+                      }
+                      selectedPath={
+                        selectedPath
+                      }
                     />
                   ) : (
                     <p className="px-2 py-3 text-[12px] text-[#777f85]">
                       No files found in the uploaded folder.
                     </p>
                   )
-                ) : fileTree.length > 0 ? (
+                ) : fileTree.length >
+                  0 ? (
                   <FileTree
                     items={fileTree}
-                    onFileClick={openFile}
-                    selectedPath={selectedPath}
+                    onFileClick={
+                      openFile
+                    }
+                    selectedPath={
+                      selectedPath
+                    }
                   />
                 ) : (
                   <p className="px-2 py-3 text-[12px] text-[#777f85]">
@@ -1727,7 +1843,9 @@ export default function Repository() {
                 ) : selectedPath ? (
                   <pre className="overflow-x-auto p-5 text-[12px] leading-6 text-[#c1c6ca]">
                     <code>
-                      {fileContent}
+                      {
+                        fileContent
+                      }
                     </code>
                   </pre>
                 ) : (
@@ -1808,7 +1926,22 @@ export default function Repository() {
 
               <button
                 type="button"
-                onClick={() => navigate("/docpilot")}
+                onClick={() => {
+                  if (isUploadedProject) {
+                    navigate(
+                      `/docpilot?projectId=${encodeURIComponent(
+                        uploadedRouteProjectId
+                      )}`
+                    );
+                    return;
+                  }
+                  navigate("/docpilot", {
+                    state: {
+                      repositoryOwner,
+                      repositoryName,
+                    },
+                  });
+                }}
                 className="
                   mt-7
                   rounded-[7px]
@@ -1826,10 +1959,12 @@ export default function Repository() {
               </button>
 
               <p className="mt-3 text-[11px] text-[#60686e]">
-                The AI generation endpoint can
-                be connected to this button next.
-              </p>
+              Documentation will be generated from the
+              project files stored on the server.
+            </p>
+
             </div>
+
           </section>
         )}
       </main>

@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
 
-import Sidebar from "../Pages/Dashboard/components/Sidebar";
-import Toast from "../Pages/Dashboard/components/Toast";
+import Sidebar from "../pages/Dashboard/components/Sidebar";
+import Toast from "../pages/Dashboard/components/Toast";
 
 export default function DashboardLayout() {
   const navigate = useNavigate();

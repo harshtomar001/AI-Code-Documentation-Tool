@@ -37,12 +37,16 @@ class JobManager:
         """Return the number of completed batches for a job."""
         return self._batch_results.count(job_id)
 
-    def create_job(self) -> JobInfo:
+    def create_job(
+        self,
+        project_id: str | None = None,
+    ) -> JobInfo:
         """Create a new queued job."""
         job_id = str(uuid4())
 
         job = JobInfo(
             job_id=job_id,
+            project_id=project_id,
             status="queued",
             message="Job queued",
         )
@@ -72,6 +76,7 @@ class JobManager:
 
         updated = JobInfo(
             job_id=job.job_id,
+            project_id=job.project_id,
             status=status,
             message=message,
         )

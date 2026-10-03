@@ -32,9 +32,18 @@ export const createProject = async (token, project) => {
 };
 
 export const deleteProject = async (token, projectId) => {
-  const response = await api.delete(
-    `/api/projects/${projectId}`,
-    authConfig(token)
-  );
-  return response.data;
+
+    console.log("handle delete project");
+    console.log("inside delete project before the api call");
+
+    console.log( projectId);
+
+    const response = await api.delete(
+        `/api/projects/${projectId}`,
+        authConfig(token)
+    );
+
+    console.log("inside delete project after the api call");
+    console.log(response);
+    return response.data;
 };

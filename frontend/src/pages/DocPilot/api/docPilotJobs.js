@@ -1,5 +1,6 @@
 import {
   createJobEventSource,
+  createProjectJob,
   getJob,
   getJobBatches,
   getBatchResult,
@@ -8,9 +9,25 @@ import {
 
 /**
  * Start a documentation job from a local ZIP repository.
+ *
+ * Legacy flow. Kept for compatibility.
  */
 export async function startLocalJob(file, repositoryName, token = null) {
   return uploadRepository(file, repositoryName, token);
+}
+
+/**
+ * Start a documentation job for an already-uploaded project.
+ *
+ * The backend resolves the repository files from ProjectStorage
+ * using the project ID.
+ */
+export async function startProjectJob(
+  projectId,
+  repositoryName = "repository",
+  token = null
+) {
+  return createProjectJob(projectId, repositoryName, token);
 }
 
 /**

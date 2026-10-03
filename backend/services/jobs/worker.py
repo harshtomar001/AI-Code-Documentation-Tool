@@ -2,6 +2,7 @@
 
 import asyncio
 from concurrent.futures import Future
+from uuid import UUID
 
 from backend.services.jobs.batch_results import BatchResult
 from backend.services.repositories import JobWorkspace
@@ -15,6 +16,14 @@ from core_ai.config import load_environment
 from core_ai.events import EventProgress, JobEvent
 from core_ai.models.results import AIResult
 from core_ai.pipeline import CorePipeline
+
+from database.database import AsyncSessionLocal
+
+from backend.services.documentation import (
+    calculate_documentation_metrics,
+    save_documentation_batch,
+    save_documentation_run,
+)
 
 from .event_broker import JobEventBroker
 from .manager import JobManager
@@ -56,6 +65,7 @@ class JobWorker:
         job_id: str,
         repository_path: str,
         repository_name: str = "repository",
+        project_id: str | None = None,
     ) -> None:
         """Run the Core AI pipeline for a job."""
         publisher = self.job_manager.get_publisher(job_id)
@@ -64,7 +74,17 @@ class JobWorker:
             return
 
         loop = asyncio.get_running_loop()
+
+        # Futures used to forward CorePipeline events to the async broker.
         pending_events: list[Future[None]] = []
+
+        # Futures used to persist completed AI batches.
+        #
+        # IMPORTANT:
+        # These are scheduled from the pipeline worker thread.
+        # We must NOT call future.result() from that thread because
+        # the main asyncio loop is waiting for pipeline.run().
+        pending_batch_persistence: list[Future[None]] = []
 
         async def forward(event: JobEvent) -> None:
             """Forward a Core AI event to the async broker."""
@@ -85,7 +105,8 @@ class JobWorker:
             total_batches: int,
             ai_result: AIResult,
         ) -> None:
-            """Store one completed batch and publish its completion event."""
+            """Schedule persistence for one completed AI batch."""
+
             result = BatchResult(
                 job_id=job_id,
                 batch_id=batch_id,
@@ -95,20 +116,50 @@ class JobWorker:
                 readme=ai_result.documentation.readme,
             )
 
-            # Store first so the frontend can safely fetch the result
-            # as soon as it receives the SSE completion event.
-            self.job_manager.save_batch_result(result)
+            async def persist_batch() -> None:
+                """Persist the batch and notify the frontend after commit."""
 
-            publisher.emit(
-                job_id=job_id,
-                stage="batch",
-                type="completed",
-                message=f"Batch {batch_id}/{total_batches} completed",
-                progress=EventProgress(
-                    current=batch_id,
-                    total=total_batches,
-                ),
+                project_uuid = UUID(project_id) if project_id else None
+
+                async with AsyncSessionLocal() as db:
+                    await save_documentation_batch(
+                        db,
+                        result=result,
+                        project_id=project_uuid,
+                    )
+
+                # Keep the in-memory cache for fast access during
+                # the active job.
+                self.job_manager.save_batch_result(result)
+
+                # Only notify the frontend after the database commit
+                # has successfully completed.
+                publisher.emit(
+                    job_id=job_id,
+                    stage="batch",
+                    type="completed",
+                    message=(
+                        f"Batch {batch_id}/{total_batches} completed"
+                    ),
+                    progress=EventProgress(
+                        current=batch_id,
+                        total=total_batches,
+                    ),
+                )
+
+            # The CorePipeline executes this callback from the
+            # pipeline worker thread.
+            #
+            # Schedule the async database operation on the main
+            # event loop and return immediately.
+            #
+            # DO NOT call future.result() here.
+            future = asyncio.run_coroutine_threadsafe(
+                persist_batch(),
+                loop,
             )
+
+            pending_batch_persistence.append(future)
 
         try:
             self.job_manager.update_job(
@@ -142,15 +193,47 @@ class JobWorker:
                 pipeline = self.pipeline
                 pipeline.batch_result_handler = handle_batch_result
 
-            await asyncio.to_thread(
+            pipeline_result = await asyncio.to_thread(
                 pipeline.run,
                 repository_path,
                 repository_name,
             )
 
+            # The pipeline has finished generating all batches.
+            #
+            # Now the main event loop is free to execute the database
+            # persistence coroutines that were scheduled by the
+            # pipeline worker thread.
+            if pending_batch_persistence:
+                await asyncio.gather(
+                    *(
+                        asyncio.wrap_future(future)
+                        for future in pending_batch_persistence
+                    )
+                )
+
+            if project_id:
+                project_uuid = UUID(project_id)
+
+                metrics = calculate_documentation_metrics(
+                    pipeline_result,
+                )
+
+                async with AsyncSessionLocal() as db:
+                    await save_documentation_run(
+                        db,
+                        project_id=project_uuid,
+                        **metrics,
+                    )
+
+            # Wait until all queued CorePipeline events have reached
+            # the async event broker.
             if pending_events:
                 await asyncio.gather(
-                    *(asyncio.wrap_future(future) for future in pending_events)
+                    *(
+                        asyncio.wrap_future(future)
+                        for future in pending_events
+                    )
                 )
 
             self.job_manager.update_job(
@@ -179,6 +262,18 @@ class JobWorker:
                 type="failed",
                 message=f"Documentation job failed: {exc}",
             )
+
+            # Make a best effort to finish already-scheduled batch
+            # persistence operations before closing the job.
+            if pending_batch_persistence:
+                await asyncio.gather(
+                    *(
+                        asyncio.wrap_future(future)
+                        for future in pending_batch_persistence
+                        if not future.done()
+                    ),
+                    return_exceptions=True,
+                )
 
             if pending_events:
                 await asyncio.gather(

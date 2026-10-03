@@ -37,7 +37,7 @@ class Settings(BaseSettings):
 
     MICROSOFT_REFRESH_TOKEN: str = ""
     model_config = SettingsConfigDict(
-        env_file=".env",
+        env_file="backend/.env",
         env_file_encoding="utf-8",
         extra="ignore",
     )

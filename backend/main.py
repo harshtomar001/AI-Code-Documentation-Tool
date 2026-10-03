@@ -13,6 +13,10 @@ from routes.jobs.jobs import router as jobs_router
 from routes.jobs.upload import router as upload_router
 from routes.jobs.batches import router as batches_router
 
+from routes.projects import router as projects_router
+from routes.project_files import router as project_files_router
+from routes.dashboard import  router as dashboard_router
+
 
 app = FastAPI(
     title=settings.APP_NAME,
@@ -49,12 +53,16 @@ app.include_router(github_router)
 
 # Projects
 app.include_router(projects_router)
+app.include_router(project_files_router)
 
 # Core AI job system
 app.include_router(jobs_router)
 app.include_router(events_router)
 app.include_router(upload_router)
 app.include_router(batches_router)
+
+# Dashboard
+app.include_router(dashboard_router)
 
 
 @app.get("/")

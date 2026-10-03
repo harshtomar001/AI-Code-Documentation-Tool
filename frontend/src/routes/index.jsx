@@ -1,16 +1,16 @@
 
 import { Routes, Route } from "react-router-dom";
 
-import Landing from "../Pages/Landing/landing";
-import Login from "../Pages/Login/login";
-import Register from "../Pages/Register/Register";
-import Dashboard from "../Pages/Dashboard/dashboard";
-import OAuthCallback from "../Pages/OAuthCallback/OAuthCallback";
-import Repository from "../Pages/Repository/Repository";
-import Forgot from "../Pages/Login/Forgot";
+import Landing from "../pages/Landing/landing";
+import Login from "../pages/Login/login";
+import Register from "../pages/Register/Register";
+import Dashboard from "../pages/Dashboard/dashboard";
+import OAuthCallback from "../pages/OAuthCallback/OAuthCallback";
+import Repository from "../pages/Repository/Repository";
+import Forgot from "../pages/Login/Forgot";
 import ProtectedRoute from "./ProtectedRoute";
-import DocPilot from "../Pages/DocPilot/DocPilot";
-import Projects from "../Pages/Projects/Projects";
+import DocPilot from "../pages/DocPilot/DocPilot";
+import Projects from "../pages/Projects/Projects";
 import DashboardLayout from "../layouts/DashboardLayout";
 function AppRoutes() {
   return (
@@ -49,10 +49,10 @@ function AppRoutes() {
             element={<Repository />}
           />
           <Route
-            path="/repository/uploaded/:projectName"
-            element={<Repository />}
-          />
-          <Route path="/docpilot" element={<DocPilot />} />
+          path="/repository/uploaded/:projectId"
+          element={<Repository />}
+        />
+            <Route path="/docpilot" element={<DocPilot />} />
           <Route path="/projects" element={<Projects />} />
         </Route>
       </Route>

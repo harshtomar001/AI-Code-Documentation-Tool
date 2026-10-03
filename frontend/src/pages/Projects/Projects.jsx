@@ -267,25 +267,27 @@ export default function Projects() {
   }, [projects, filter, search, sort]);
 
   const openProject = (project) => {
-    setMenuId(null);
+  setMenuId(null);
 
-    if (project.github_owner && project.github_repo) {
-      navigate(
-        `/repository/${encodeURIComponent(
-          project.github_owner
-        )}/${encodeURIComponent(
-          project.github_repo
-        )}`
-      );
-      return;
-    }
+  if (project.github_owner && project.github_repo) {
+    navigate(
+      `/repository/${encodeURIComponent(
+        project.github_owner
+      )}/${encodeURIComponent(
+        project.github_repo
+      )}`
+    );
+    return;
+  }
 
-    navigate(`/repository/project/${project.id}`, {
-      state: {
-        project,
-      },
-    });
-  };
+  navigate(`/repository/uploaded/${encodeURIComponent(project.id)}`, {
+    state: {
+      projectId: project.id,
+      project,
+      source: project.source_type,
+    },
+  });
+};
 
   const createProject = async (payload) => {
     try {

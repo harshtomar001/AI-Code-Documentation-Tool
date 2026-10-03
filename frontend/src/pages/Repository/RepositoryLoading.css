@@ -1,0 +1,328 @@
+/* =========================================================
+   Repository loading screen
+   Palette: #0d0f10 bg, #151819 / #101213 surfaces,
+   #292d30 borders, #858d93 / #646c72 text, #ef5148 accent
+   ========================================================= */
+
+.rl-root {
+  position: relative;
+  min-height: 100vh;
+  overflow: hidden;
+  background: #0d0f10;
+  color: #f2f3f4;
+}
+
+/* ---------- background grid (transform-only, very slow) ---------- */
+
+.rl-grid {
+  position: absolute;
+  inset: -48px;
+  pointer-events: none;
+  background-image:
+    linear-gradient(to right, rgba(255, 255, 255, 0.035) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.035) 1px, transparent 1px);
+  background-size: 48px 48px;
+  -webkit-mask-image: radial-gradient(ellipse at center, #000 20%, transparent 75%);
+  mask-image: radial-gradient(ellipse at center, #000 20%, transparent 75%);
+  animation: rl-grid-drift 40s linear infinite;
+  will-change: transform;
+}
+
+@keyframes rl-grid-drift {
+  from { transform: translate3d(0, 0, 0); }
+  to   { transform: translate3d(48px, 48px, 0); }
+}
+
+/* ---------- layout ---------- */
+
+.rl-content {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  min-height: 100vh;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.rl-stack {
+  display: flex;
+  width: 100%;
+  max-width: 320px;
+  flex-direction: column;
+  align-items: center;
+  animation: rl-enter 400ms ease-out backwards;
+}
+
+@keyframes rl-enter {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ---------- repository visual ---------- */
+
+.rl-repo {
+  position: relative;
+  width: 148px;
+  overflow: hidden;
+  border: 1px solid #292d30;
+  border-radius: 10px;
+  background: #151819;
+  animation: rl-pulse 3.2s ease-in-out infinite;
+}
+
+@keyframes rl-pulse {
+  0%, 100% {
+    transform: scale(1);
+    box-shadow: 0 0 0 rgba(239, 81, 72, 0);
+  }
+  50% {
+    transform: scale(1.015);
+    box-shadow: 0 0 22px rgba(239, 81, 72, 0.12);
+  }
+}
+
+.rl-repo-bar {
+  display: flex;
+  gap: 4px;
+  border-bottom: 1px solid #292d30;
+  background: #101213;
+  padding: 7px 9px;
+}
+
+.rl-repo-bar span {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #292d30;
+}
+
+.rl-repo-body {
+  padding: 12px 12px 10px;
+}
+
+.rl-repo-glyph {
+  margin-bottom: 9px;
+  text-align: center;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 18px;
+  letter-spacing: 1px;
+  color: #ef5148;
+}
+
+.rl-line {
+  height: 3px;
+  margin-bottom: 5px;
+  border-radius: 2px;
+  background: #292d30;
+}
+
+.rl-line--accent {
+  background: rgba(239, 81, 72, 0.45);
+}
+
+.rl-repo-label {
+  margin-top: 9px;
+  text-align: center;
+  font-size: 9px;
+  letter-spacing: 0.16em;
+  color: #646c72;
+}
+
+/* scanning line */
+
+.rl-scan {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 1px;
+  background: linear-gradient(
+    to right,
+    transparent,
+    #ef5148 50%,
+    transparent
+  );
+  box-shadow: 0 0 8px rgba(239, 81, 72, 0.5);
+  opacity: 0;
+  animation: rl-scan 3.2s ease-in-out infinite;
+  will-change: transform, opacity;
+}
+
+@keyframes rl-scan {
+  0%   { transform: translateY(0);     opacity: 0; }
+  10%  { opacity: 1; }
+  70%  { opacity: 1; }
+  85%  { transform: translateY(104px); opacity: 0; }
+  100% { transform: translateY(104px); opacity: 0; }
+}
+
+/* connector + target */
+
+.rl-connector {
+  position: relative;
+  width: 1px;
+  height: 30px;
+  background: #292d30;
+}
+
+.rl-connector::after {
+  content: "";
+  position: absolute;
+  left: -1px;
+  top: 0;
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: #ef5148;
+  animation: rl-travel 1.8s ease-in-out infinite;
+}
+
+@keyframes rl-travel {
+  0%   { transform: translateY(0);    opacity: 0; }
+  20%  { opacity: 1; }
+  80%  { opacity: 1; }
+  100% { transform: translateY(28px); opacity: 0; }
+}
+
+.rl-target {
+  border: 1px solid #292d30;
+  border-radius: 6px;
+  background: #101213;
+  padding: 5px 12px;
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.18em;
+  color: #b4bac0;
+}
+
+/* ---------- status text (pure CSS cycle, 5 x 3s) ---------- */
+
+.rl-title {
+  margin-top: 28px;
+  font-size: 15px;
+  color: #b4bac0;
+}
+
+.rl-status {
+  position: relative;
+  width: 100%;
+  height: 20px;
+  margin-top: 6px;
+}
+
+.rl-status span {
+  position: absolute;
+  inset: 0;
+  text-align: center;
+  font-size: 12px;
+  color: #858d93;
+  opacity: 0;
+  animation: rl-status 15s ease-in-out infinite both;
+}
+
+.rl-status span:nth-child(1) { animation-delay: 0s; }
+.rl-status span:nth-child(2) { animation-delay: 3s; }
+.rl-status span:nth-child(3) { animation-delay: 6s; }
+.rl-status span:nth-child(4) { animation-delay: 9s; }
+.rl-status span:nth-child(5) { animation-delay: 12s; }
+
+@keyframes rl-status {
+  0%   { opacity: 0; transform: translateY(6px); }
+  3%   { opacity: 1; transform: translateY(0); }
+  17%  { opacity: 1; transform: translateY(0); }
+  20%  { opacity: 0; transform: translateY(-6px); }
+  100% { opacity: 0; transform: translateY(-6px); }
+}
+
+/* ---------- indeterminate progress ---------- */
+
+.rl-progress {
+  position: relative;
+  width: 100%;
+  max-width: 220px;
+  height: 2px;
+  margin-top: 18px;
+  overflow: hidden;
+  border-radius: 2px;
+  background: #292d30;
+}
+
+.rl-progress::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  width: 40%;
+  border-radius: 2px;
+  background: #ef5148;
+  animation: rl-progress 1.6s ease-in-out infinite;
+  will-change: transform;
+}
+
+@keyframes rl-progress {
+  from { transform: translateX(-100%); }
+  to   { transform: translateX(250%); }
+}
+
+/* ---------- screen-reader only ---------- */
+
+.rl-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+}
+
+/* ---------- entrance for the real page ---------- */
+/* `backwards` so no transform remains after the animation ends */
+
+.repo-page-enter {
+  animation: repo-page-enter 400ms ease-out backwards;
+}
+
+@keyframes repo-page-enter {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ---------- small screens ---------- */
+
+@media (max-width: 480px) {
+  .rl-stack { max-width: 260px; }
+}
+
+/* ---------- reduced motion ---------- */
+
+@media (prefers-reduced-motion: reduce) {
+  .rl-grid,
+  .rl-stack,
+  .rl-repo,
+  .rl-scan,
+  .rl-connector::after,
+  .rl-progress::after,
+  .repo-page-enter {
+    animation: none;
+  }
+
+  .rl-scan,
+  .rl-connector::after {
+    display: none;
+  }
+
+  /* show a single static message instead of cycling */
+  .rl-status span {
+    animation: none;
+    opacity: 0;
+  }
+  .rl-status span:nth-child(1) {
+    opacity: 1;
+  }
+
+  /* static partial bar instead of a moving one */
+  .rl-progress::after {
+    width: 40%;
+    transform: none;
+  }
+}

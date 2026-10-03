@@ -1,4 +1,4 @@
-﻿import { createPortal } from "react-dom";
+import { createPortal } from "react-dom";
 import { useEffect, useRef } from "react";
 
 import { useEngine } from "../../hooks/useEngine.js";
@@ -20,13 +20,15 @@ export default function ReviewModal() {
   const { modal } = engine;
 
   const b = engine.batches[modal.batch];
+
   const closeRef = useRef(null);
   const bodyRef = useRef(null);
 
-  if (!b) return null;
-
-  const done = b.status === "done";
-  const file = b.files[b.page];
+  /*
+   * IMPORTANT:
+   * All hooks must run on every render.
+   * Do not return early before these effects.
+   */
 
   useEffect(() => {
     if (!modal.open) return undefined;
@@ -34,14 +36,25 @@ export default function ReviewModal() {
     const onKey = (e) => {
       if (e.key === "Escape") {
         engine.closeModal();
-      } else if (e.key === "ArrowRight") {
-        engine.gotoPage(
-          engine.batches[engine.modal.batch].page + 1
-        );
-      } else if (e.key === "ArrowLeft") {
-        engine.gotoPage(
-          engine.batches[engine.modal.batch].page - 1
-        );
+        return;
+      }
+
+      if (e.key === "ArrowRight") {
+        const currentBatch = engine.batches[engine.modal.batch];
+
+        if (currentBatch) {
+          engine.gotoPage(currentBatch.page + 1);
+        }
+
+        return;
+      }
+
+      if (e.key === "ArrowLeft") {
+        const currentBatch = engine.batches[engine.modal.batch];
+
+        if (currentBatch) {
+          engine.gotoPage(currentBatch.page - 1);
+        }
       }
     };
 
@@ -62,7 +75,22 @@ export default function ReviewModal() {
     if (bodyRef.current) {
       bodyRef.current.scrollTop = 0;
     }
-  }, [modal.batch, b.page]);
+  }, [modal.batch, b?.page]);
+
+  /*
+   * The batch may not exist on the first render while the real backend
+   * job is still starting. That is fine; hooks have already executed.
+   */
+  if (!b) {
+    return null;
+  }
+
+  const done = b.status === "done";
+  const file = b.files[b.page];
+
+  if (!file && !done) {
+    return null;
+  }
 
   const modalContent = (
     <div

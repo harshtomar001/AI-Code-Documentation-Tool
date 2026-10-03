@@ -1,10 +1,11 @@
-"""Stale documentation detection utilities.
+﻿"""Stale documentation detection utilities.
 
-This module analyzes documented Python functions and methods to identify
-documentation that does not mention parameters present in the source code.
+This module detects documentation that refers to parameters which no longer
+exist in the corresponding Python function or method signature.
 """
 
 import ast
+import re
 
 from .models.analysis import AnalysisResult
 from .models.documentation_analysis import (
@@ -15,28 +16,52 @@ from .models.scanner import SourceFile
 
 
 class StaleDocumentationDetector:
-    """Detect stale parameter documentation in Python source files."""
+    """Detect documentation references to obsolete function parameters."""
+
+    _SPHINX_PARAM_PATTERN = re.compile(
+        r"^\s*:param(?:\s+\w+)?\s+([A-Za-z_]\w*)\s*:"
+    )
+
+    _GOOGLE_PARAM_PATTERN = re.compile(
+        r"^\s*([*]{0,2}[A-Za-z_]\w*)\s*(?:\([^)]*\))?\s*:"
+    )
+
+    _NUMPY_PARAM_PATTERN = re.compile(
+        r"^\s*([*]{0,2}[A-Za-z_]\w*)\s*(?:\([^)]*\))?\s*$"
+    )
+
+    _PARAMETER_SECTION_NAMES = {
+        "args",
+        "arguments",
+        "parameters",
+        "keyword arguments",
+        "keyword args",
+    }
 
     def detect(
         self,
         analysis: AnalysisResult,
         files: list[SourceFile],
     ) -> StaleDocumentationResult:
-        """Detect documentation that is missing source-code parameters.
+        """Detect documentation that refers to obsolete parameters.
 
-        Args:
-            analysis: Results produced by the AST analysis stage.
-            files: Source files discovered by the repository scanner.
+        A documentation issue is reported only when a documented parameter
+        does not exist in the current source-code signature.
 
-        Returns:
-            A StaleDocumentationResult containing detected stale
-            documentation issues.
+        Missing documentation is intentionally handled by
+        DocumentationChecker, not this detector.
         """
         issues: list[StaleDocumentationIssue] = []
 
-        source_map: dict[str, str] = {file.path: file.content for file in files}
+        source_map = {
+            file.path: file.content
+            for file in files
+        }
 
         for file_analysis in analysis.files:
+            if file_analysis.language != "python":
+                continue
+
             source = source_map.get(file_analysis.path)
 
             if source is None:
@@ -47,140 +72,244 @@ class StaleDocumentationDetector:
             except SyntaxError:
                 continue
 
-            for node in ast.walk(tree):
-                if not isinstance(
+            function_nodes: dict[
+                tuple[str, int],
+                ast.FunctionDef | ast.AsyncFunctionDef,
+            ] = {}
+
+            for node in tree.body:
+                if isinstance(
                     node,
-                    (
-                        ast.FunctionDef,
-                        ast.AsyncFunctionDef,
-                    ),
+                    (ast.FunctionDef, ast.AsyncFunctionDef),
                 ):
-                    continue
+                    function_nodes[(node.name, node.lineno)] = node
 
-                if ast.get_docstring(node) is None:
-                    continue
-
-                if node.name.startswith("_"):
-                    continue
-
-                parameters = self._get_parameters(node)
-
-                docstring = ast.get_docstring(node)
-
-                if docstring is None:
-                    continue
-
-                documented_parameters = self._extract_documented_parameters(docstring)
-
-                missing_parameters = [
-                    parameter
-                    for parameter in parameters
-                    if parameter not in documented_parameters
-                ]
-
-                if missing_parameters:
-                    issues.append(
-                        StaleDocumentationIssue(
-                            file=file_analysis.path,
-                            target=node.name,
-                            type=(
-                                "method" if self._is_method(node, tree) else "function"
+                elif isinstance(node, ast.ClassDef):
+                    for child in node.body:
+                        if isinstance(
+                            child,
+                            (
+                                ast.FunctionDef,
+                                ast.AsyncFunctionDef,
                             ),
-                            line=node.lineno,
-                            issue="stale",
-                            details=(
-                                "Documentation does not mention "
-                                f"parameters: {missing_parameters}"
-                            ),
-                        )
+                        ):
+                            function_nodes[
+                                (child.name, child.lineno)
+                            ] = child
+
+            # Top-level functions.
+            for function in file_analysis.functions:
+                if not function.has_docstring or not function.is_public:
+                    continue
+
+                node = function_nodes.get(
+                    (function.name, function.line_start)
+                )
+
+                if node is None:
+                    continue
+
+                self._check_function(
+                    node=node,
+                    file_path=file_analysis.path,
+                    target_type="function",
+                    issues=issues,
+                )
+
+            # Class methods.
+            for class_analysis in file_analysis.classes:
+                for method in class_analysis.methods:
+                    if not method.has_docstring or not method.is_public:
+                        continue
+
+                    node = function_nodes.get(
+                        (method.name, method.line_start)
+                    )
+
+                    if node is None:
+                        continue
+
+                    self._check_function(
+                        node=node,
+                        file_path=file_analysis.path,
+                        target_type="method",
+                        issues=issues,
                     )
 
         return StaleDocumentationResult(issues=issues)
 
-    def _get_parameters(
+    def _check_function(
+        self,
+        *,
+        node: ast.FunctionDef | ast.AsyncFunctionDef,
+        file_path: str,
+        target_type: str,
+        issues: list[StaleDocumentationIssue],
+    ) -> None:
+        """Check one documented function or method."""
+
+        docstring = ast.get_docstring(node)
+
+        if docstring is None:
+            return
+
+        source_parameters = self._get_source_parameters(node)
+
+        if not source_parameters:
+            return
+
+        documented_parameters = self._extract_documented_parameters(
+            docstring
+        )
+
+        if not documented_parameters:
+            return
+
+        stale_parameters = sorted(
+            parameter
+            for parameter in documented_parameters
+            if parameter not in source_parameters
+        )
+
+        if not stale_parameters:
+            return
+
+        issues.append(
+            StaleDocumentationIssue(
+                file=file_path,
+                target=node.name,
+                type=target_type,
+                line=node.lineno,
+                issue="stale",
+                details=(
+                    "Documentation refers to parameters that no longer "
+                    f"exist in the source signature: {stale_parameters}"
+                ),
+            )
+        )
+
+    def _get_source_parameters(
         self,
         node: ast.FunctionDef | ast.AsyncFunctionDef,
-    ) -> list[str]:
-        """Extract documented-relevant parameters from a function node.
+    ) -> set[str]:
+        """Return all parameter names from the current source signature."""
 
-        ``self`` and ``cls`` are excluded to preserve the detector's
-        existing behavior.
+        parameters: set[str] = set()
 
-        Args:
-            node: AST node representing a function or method.
+        arguments = node.args
 
-        Returns:
-            A list of parameter names excluding ``self`` and ``cls``.
-        """
-        parameters: list[str] = []
+        for argument in arguments.posonlyargs:
+            parameters.add(argument.arg)
 
-        for argument in node.args.args:
-            if argument.arg in {"self", "cls"}:
-                continue
+        for argument in arguments.args:
+            parameters.add(argument.arg)
 
-            parameters.append(argument.arg)
+        for argument in arguments.kwonlyargs:
+            parameters.add(argument.arg)
+
+        if arguments.vararg is not None:
+            parameters.add(arguments.vararg.arg)
+
+        if arguments.kwarg is not None:
+            parameters.add(arguments.kwarg.arg)
+
+        parameters.discard("self")
+        parameters.discard("cls")
 
         return parameters
 
     def _extract_documented_parameters(
         self,
         docstring: str,
-    ) -> list[str]:
-        """Extract parameter names mentioned in a docstring.
+    ) -> set[str]:
+        """Extract explicitly documented parameter names.
 
-        Args:
-            docstring: Function or method docstring to inspect.
-
-        Returns:
-            A list of parameter names detected from colon-separated
-            documentation lines.
+        Supports common Sphinx, Google-style, and NumPy-style parameter
+        documentation without treating arbitrary colon-separated sentences
+        such as ``Returns:`` as parameters.
         """
-        documented: list[str] = []
 
-        try:
-            ast.parse('"""' + docstring + '"""')
-        except SyntaxError:
-            return documented
+        documented: set[str] = set()
 
-        text = docstring.splitlines()
+        lines = docstring.splitlines()
+        in_parameter_section = False
 
-        for line in text:
+        for index, line in enumerate(lines):
             stripped = line.strip()
 
-            if ":" not in stripped:
+            if not stripped:
                 continue
 
-            parameter = stripped.split(":", 1)[0].strip()
+            # Sphinx-style:
+            # :param value: Description
+            sphinx_match = self._SPHINX_PARAM_PATTERN.match(line)
 
-            if parameter.startswith("*"):
-                parameter = parameter.lstrip("*")
+            if sphinx_match:
+                documented.add(sphinx_match.group(1).lstrip("*"))
+                continue
 
-            if parameter.isidentifier():
-                documented.append(parameter)
+            normalized = stripped.rstrip(":").lower()
+
+            # Google-style section:
+            # Args:
+            #     value: Description
+            if normalized in self._PARAMETER_SECTION_NAMES:
+                in_parameter_section = True
+                continue
+
+            # Leave the parameter section when another documented section
+            # starts.
+            if stripped.endswith(":"):
+                possible_section = stripped[:-1].strip().lower()
+
+                if (
+                    possible_section
+                    and possible_section
+                    not in self._PARAMETER_SECTION_NAMES
+                ):
+                    in_parameter_section = False
+
+            if in_parameter_section:
+                google_match = self._GOOGLE_PARAM_PATTERN.match(line)
+
+                if google_match:
+                    documented.add(
+                        google_match.group(1).lstrip("*")
+                    )
+                    continue
+
+            # NumPy-style sections:
+            #
+            # Parameters
+            # ----------
+            # value : int
+            #
+            # The parameter line itself can be identified by looking for a
+            # following type separator.
+            if index + 1 < len(lines):
+                next_line = lines[index + 1].strip()
+
+                if (
+                    re.fullmatch(r"-{3,}", next_line)
+                    and stripped.lower()
+                    in self._PARAMETER_SECTION_NAMES
+                ):
+                    in_parameter_section = True
+                    continue
+
+            if in_parameter_section:
+                numpy_match = self._NUMPY_PARAM_PATTERN.match(stripped)
+
+                if numpy_match:
+                    next_line = (
+                        lines[index + 1].strip()
+                        if index + 1 < len(lines)
+                        else ""
+                    )
+
+                    if next_line.startswith(":"):
+                        documented.add(
+                            numpy_match.group(1).lstrip("*")
+                        )
 
         return documented
-
-    def _is_method(
-        self,
-        node: ast.FunctionDef | ast.AsyncFunctionDef,
-        tree: ast.AST,
-    ) -> bool:
-        """Determine whether a function node belongs to a class.
-
-        Args:
-            node: Function or async-function AST node.
-            tree: Parsed module AST containing the node.
-
-        Returns:
-            ``True`` when the function is directly contained in a class;
-            otherwise ``False``.
-        """
-        for parent in ast.walk(tree):
-            if not isinstance(parent, ast.ClassDef):
-                continue
-
-            for child in parent.body:
-                if child is node:
-                    return True
-
-        return False

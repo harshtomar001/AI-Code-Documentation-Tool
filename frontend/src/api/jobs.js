@@ -30,6 +30,39 @@ export async function uploadRepository(
   return response.data;
 }
 
+
+/**
+ * Start a documentation job for an already-uploaded project.
+ */
+export async function createProjectJob(
+      projectId,
+      repositoryName = "repository",
+      token = null
+    ) {
+      if (!projectId) {
+        throw new Error("Project ID is required.");
+      }
+
+      const config = {};
+
+      if (token) {
+        config.headers = {
+          Authorization: `Bearer ${token}`,
+        };
+      }
+
+      const response = await api.post(
+        "/api/jobs",
+        {
+          project_id: projectId,
+          repository_name: repositoryName,
+        },
+        config
+      );
+
+      return response.data;
+    }
+
 /**
  * Get the current state of a documentation job.
  */

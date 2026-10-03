@@ -12,91 +12,11 @@ import {
 } from "../../../api/github";
 import { createProject } from "../../../api/projects";
 import { saveProjectFiles } from "../../../api/projectStore";
-// /* =========================================================
-//    STORAGE
-//    ========================================================= */
+import {getToken} from "../../../utils/getToken.js";
 
-// export const PROJECTS_STORAGE_KEY =
-//   "docuai_saved_projects";
 
-// export function saveProject(project) {
-//   const current = JSON.parse(
-//     localStorage.getItem(
-//       PROJECTS_STORAGE_KEY
-//     ) || "[]"
-//   );
+const MAX_PROJECT_SIZE = 200 * 1024 * 1024;
 
-//   const projectId =
-//     project.id ||
-//     (
-//       project.source === "github"
-//         ? `github:${project.owner}/${project.repo}`
-//         : `upload:${project.name}`
-//     );
-
-//   const normalized = {
-//     id: projectId,
-//     name:
-//       project.name?.trim() ||
-//       "Untitled Project",
-//     description:
-//       project.description?.trim() || "",
-//     source: project.source || "github",
-//     owner: project.owner || null,
-//     repo: project.repo || null,
-//     html_url:
-//       project.html_url || null,
-//     tags:
-//       Array.isArray(project.tags) &&
-//       project.tags.length
-//         ? project.tags.slice(0, 3)
-//         : ["Project"],
-//     progress:
-//       Number.isFinite(project.progress)
-//         ? project.progress
-//         : 0,
-//     createdAt:
-//       project.createdAt ||
-//       new Date().toISOString(),
-//     /*
-//      * File objects are intentionally NOT stored in
-//      * localStorage. Browser File objects are not serializable.
-//      * The uploaded project can still be opened in the same
-//      * navigation session through React Router state.
-//      */
-//   };
-
-//   const remaining = current.filter(
-//     (item) => item.id !== normalized.id
-//   );
-
-//   localStorage.setItem(
-//     PROJECTS_STORAGE_KEY,
-//     JSON.stringify([
-//       normalized,
-//       ...remaining,
-//     ])
-//   );
-
-//   window.dispatchEvent(
-//     new CustomEvent(
-//       "docuai-projects-updated"
-//     )
-//   );
-
-//   return normalized;
-// }
-
-/* =========================================================
-   TOKEN
-   ========================================================= */
-
-function getToken() {
-  return (
-    localStorage.getItem("access_token") ||
-    sessionStorage.getItem("access_token")
-  );
-}
 
 /* =========================================================
    GITHUB URL PARSER
@@ -138,6 +58,7 @@ function parseGitHubUrl(value) {
     return null;
   }
 }
+
 
 /* =========================================================
    PROJECT DETAILS MODAL
@@ -941,6 +862,7 @@ export default function ActionCards({
   const folderInputRef =
     useRef(null);
 
+
   const [
     showImportModal,
     setShowImportModal,
@@ -950,6 +872,21 @@ export default function ActionCards({
     showProjectSetup,
     setShowProjectSetup,
   ] = useState(false);
+
+  const [
+      showUploadTooLarge,
+      setShowUploadTooLarge,
+  ] = useState(false);
+
+  const [
+      uploadSize,
+      setUploadSize,
+    ] = useState(0);
+
+  const [
+        isCalculatingUploadSize,
+        setIsCalculatingUploadSize,
+    ] = useState(false);
 
   const [
     selectedProject,
@@ -973,98 +910,180 @@ export default function ActionCards({
     );
   };
 
-  const handleUploadFolder = (
-    event
-  ) => {
-    const files = Array.from(
-      event.target.files || []
-    );
+  const calculateFolderSize = async (files) => {
+  let totalSize = 0;
+  const CHUNK_SIZE = 500;
 
-    if (!files.length) {
-      return;
+  for (let i = 0; i < files.length; i += CHUNK_SIZE) {
+    const end = Math.min(i + CHUNK_SIZE, files.length);
+
+    for (let j = i; j < end; j++) {
+      totalSize += files[j].size || 0;
+
+      if (totalSize > MAX_PROJECT_SIZE) {
+        return totalSize;
+      }
     }
 
-    const firstPath =
-      files[0]
-        .webkitRelativePath ||
-      files[0].name ||
-      "Uploaded Project";
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  }
 
-    const projectName =
-      firstPath.includes("/")
-        ? firstPath.split("/")[0]
-        : files[0].name;
+  return totalSize;
+};
 
-    openProjectSetup({
-      id: `upload:${projectName}`,
-      source: "upload",
-      name: projectName,
-      description:
-        "Project uploaded from your computer.",
-      tags: ["Local Project"],
-      files,
-    });
+  const handleUploadFolder = async (event) => {
 
-    event.target.value = "";
-    setUploadInputReset(
-      (value) => value + 1
-    );
+      setIsCalculatingUploadSize(true);
+
+      await new Promise((resolve) => {
+        requestAnimationFrame(resolve);
+      });
+      const files = Array.from(
+        event.target.files || []
+      );
+
+      if (!files.length) {
+        return;
+      }
+
+
+      try {
+        const totalSize = await calculateFolderSize(files);
+
+        if (totalSize > MAX_PROJECT_SIZE) {
+          setUploadSize(totalSize);
+          setShowUploadTooLarge(true);
+
+          event.target.value = "";
+
+          setUploadInputReset(
+            (value) => value + 1
+          );
+
+          return;
+        }
+
+        const firstPath =
+          files[0].webkitRelativePath ||
+          files[0].name ||
+          "Uploaded Project";
+
+        const projectName =
+          firstPath.includes("/")
+            ? firstPath.split("/")[0]
+            : files[0].name;
+
+        openProjectSetup({
+          id: crypto.randomUUID(),
+          source: "upload",
+          name: projectName,
+          description:
+            "Project uploaded from your computer.",
+          tags: ["Local Project"],
+          files,
+        });
+
+        event.target.value = "";
+
+        setUploadInputReset(
+          (value) => value + 1
+        );
+      }
+      finally {
+        setIsCalculatingUploadSize(false);
+      }
   };
 
   const saveAndOpenProject = async (project) => {
-    const token = getToken();
 
-    if (!token) {
-      throw new Error("Please login first.");
-    }
+      console.log("save and open project called");
+  const token = getToken();
 
-    const sourceType = project.source || "github";
+  if (!token) {
+    throw new Error("Please login first.");
+  }
 
-    const payload = {
-      name: project.name,
-      description: project.description || null,
-      source_type: sourceType,
-      github_owner: project.owner || null,
-      github_repo: project.repo || null,
-      github_url: project.html_url || null,
-      local_storage_path: null,
-      language: project.language || project.repository?.language || null,
-      status: sourceType === "upload" ? "uploaded" : "imported",
-      documentation_progress: Number.isFinite(project.progress) ? project.progress : 0,
-    };
+  const sourceType = project.source || "github";
 
-    const saved = await createProject(token, payload);
-
-    if (sourceType === "upload" && project.files?.length) {
-      await saveProjectFiles(saved.id, project.files);
-    }
-
-    window.dispatchEvent(
-      new CustomEvent("docuai-projects-updated")
-    );
-
-    setShowProjectSetup(false);
-    setSelectedProject(null);
-
-    if (sourceType === "upload") {
-      navigate(
-        `/repository/uploaded/${encodeURIComponent(saved.name)}`,
-        {
-          state: {
-            source: "upload",
-            projectName: saved.name,
-            files: project.files || [],
-            project: saved,
-          },
-        }
-      );
-      return;
-    }
-
-    navigate(
-      `/repository/${encodeURIComponent(saved.github_owner || project.owner)}/${encodeURIComponent(saved.github_repo || project.repo)}`
-    );
+  const payload = {
+    name: project.name,
+    description: project.description || null,
+    source_type: sourceType,
+    github_owner: project.owner || null,
+    github_repo: project.repo || null,
+    github_url: project.html_url || null,
+    local_storage_path: null,
+    language:
+      project.language ||
+      project.repository?.language ||
+      null,
+    status:
+      sourceType === "upload"
+        ? "uploaded"
+        : "imported",
+    documentation_progress:
+      Number.isFinite(project.progress)
+        ? project.progress
+        : 0,
   };
+
+  const saved = await createProject(
+    token,
+    payload
+  );
+
+  console.log("save and open project after CREATE PROJECT");
+
+  if (
+    sourceType === "upload" &&
+    project.files?.length
+  ) {
+    await saveProjectFiles(
+      saved.id,
+      project.files
+    );
+
+    console.log("save and open project after SAVE PROJECT FILES");
+
+  }
+
+  window.dispatchEvent(
+    new CustomEvent(
+      "docuai-projects-updated"
+    )
+  );
+
+  setShowProjectSetup(false);
+  setSelectedProject(null);
+
+  if (sourceType === "upload") {
+      navigate(
+          `/repository/uploaded/${encodeURIComponent(
+            saved.id
+          )}`,
+          {
+            state: {
+              source: "upload",
+              projectId: saved.id,
+              projectName: saved.name,
+              files: project.files || [],
+              project: saved,
+            },
+          }
+    );
+
+
+    return;
+  }
+
+  navigate(
+    `/repository/${encodeURIComponent(
+      saved.github_owner || project.owner
+    )}/${encodeURIComponent(
+      saved.github_repo || project.repo
+    )}`
+  );
+};
 
   const card =
     darkMode
@@ -1195,6 +1214,143 @@ export default function ActionCards({
           }
         />
       )}
+
+        {isCalculatingUploadSize && (
+          <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/60 px-4">
+            <div
+              className={`w-full max-w-[420px] rounded-[12px] border p-6 shadow-2xl ${
+                darkMode
+                  ? "border-[#292d30] bg-[#101213]"
+                  : "border-[#dfe2e5] bg-white"
+              }`}
+            >
+              <div className="flex flex-col items-center text-center">
+                <div
+                  className={`h-10 w-10 animate-spin rounded-full border-4 border-t-transparent ${
+                    darkMode
+                      ? "border-[#d8dcdf] border-t-transparent"
+                      : "border-[#24282b] border-t-transparent"
+                  }`}
+                />
+
+                <h2
+                  className={`mt-5 text-[17px] font-semibold ${
+                    darkMode
+                      ? "text-[#f2f3f4]"
+                      : "text-[#17191c]"
+                  }`}
+                >
+                  Checking project size
+                </h2>
+
+                <p
+                  className={`mt-2 text-[13px] ${
+                    darkMode
+                      ? "text-[#858d93]"
+                      : "text-[#666d73]"
+                  }`}
+                >
+                  Calculating the size of the selected folder...
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {showUploadTooLarge && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 px-4">
+            <div
+              className={`w-full max-w-[520px] rounded-[12px] border p-6 shadow-2xl ${
+                darkMode
+                  ? "border-[#292d30] bg-[#101213]"
+                  : "border-[#dfe2e5] bg-white"
+              }`}
+            >
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <h2
+                    className={`text-[18px] font-semibold ${
+                      darkMode
+                        ? "text-[#f2f3f4]"
+                        : "text-[#17191c]"
+                    }`}
+                  >
+                    Project Too Large
+                  </h2>
+
+                  <p
+                    className={`mt-1 text-[13px] ${
+                      darkMode
+                        ? "text-[#858d93]"
+                        : "text-[#666d73]"
+                    }`}
+                  >
+                    The selected folder exceeds the maximum
+                    allowed project size.
+                  </p>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() =>
+                    setShowUploadTooLarge(false)
+                  }
+                  className={`flex h-9 w-9 items-center justify-center rounded-[8px] text-[18px] ${
+                    darkMode
+                      ? "bg-[#1b1f21] text-[#d8dcdf] hover:bg-[#24282b]"
+                      : "bg-[#f1f2f3] text-[#555b60] hover:bg-[#e7e9eb]"
+                  }`}
+                >
+                  ×
+                </button>
+              </div>
+
+              <div
+                className={`mt-6 rounded-[8px] border p-4 ${
+                  darkMode
+                    ? "border-[#292d30] bg-[#151819]"
+                    : "border-[#dfe2e5] bg-[#f8f9fa]"
+                }`}
+              >
+                <p
+                  className={`text-[14px] ${
+                    darkMode
+                      ? "text-[#f2f3f4]"
+                      : "text-[#17191c]"
+                  }`}
+                >
+                  The selected folder exceeds the maximum allowed size of{" "}
+                <span className="font-semibold">
+                  {(MAX_PROJECT_SIZE / (1024 * 1024)).toFixed(0)} MB
+                </span>
+                .
+                </p>
+
+                <p
+                  className={`mt-2 text-[12px] ${
+                    darkMode
+                      ? "text-[#858d93]"
+                      : "text-[#666d73]"
+                  }`}
+                >
+                  Please select a smaller folder and try again.
+                </p>
+              </div>
+
+              <div className="mt-6 flex justify-end">
+                <button
+                  type="button"
+                  onClick={() =>
+                    setShowUploadTooLarge(false)
+                  }
+                  className="rounded-[8px] bg-[#ef4444] px-5 py-2.5 text-[13px] font-medium text-white transition hover:bg-[#dc2626]"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
       {showProjectSetup && (
         <ProjectSetupModal
