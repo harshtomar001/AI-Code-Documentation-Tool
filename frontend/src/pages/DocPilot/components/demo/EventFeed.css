@@ -6,7 +6,7 @@
 .ev time { color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; }
 .ev b { font-weight: 600; color: var(--muted); font-size: 11.5px; text-transform: uppercase; letter-spacing: 0.03em; }
 .ev .ev__msg { min-width: 0; overflow-wrap: anywhere; color: var(--ink); }
-.ev--ast .ev__bullet, .ev--server .ev__bullet { color: var(--blue, #4f7cff); }
+.ev--ast .ev__bullet, .ev--server .ev__bullet, .ev--job .ev__bullet, .ev--upload .ev__bullet { color: var(--blue, #4f7cff); }
 .ev--scan .ev__bullet { color: var(--muted); }
 .ev--secret .ev__bullet, .ev--security .ev__bullet { color: var(--amber, #f7b733); }
 .ev--secure .ev__bullet, .ev--redaction .ev__bullet { color: var(--green, #3ccf8e); }
@@ -14,7 +14,8 @@
 .ev--ready b, .ev--gen b, .ev--generation b { color: var(--accent); }
 .ev--secret b, .ev--security b { color: var(--amber); }
 .ev--secure b, .ev--redaction b, .ev--commit b, .ev--done b { color: var(--green); }
-.feed__empty { padding: 30px 20px; color: var(--muted); text-align: center; }
+.ev--job b, .ev--upload b, .ev--ast b, .ev--server b { color: var(--blue, #4f7cff); }
+.feed__empty { padding: 30px 20px; color: var(--muted, #858d93); text-align: center; font-size: 13px; }
 @keyframes ev-in { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
 @keyframes pulse { 50% { opacity: 0.35; } }
 @media (max-width: 640px) { .ev { grid-template-columns: 12px 50px 52px minmax(0, 1fr); padding: 6px 10px; } }

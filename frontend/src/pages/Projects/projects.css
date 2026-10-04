@@ -566,7 +566,7 @@
   background: rgba(0,0,0,.65);
 }
 
-.modal {
+.modal-backdrop .modal {
   width: min(500px, 100%);
   padding: 24px;
   border: 1px solid #343a3d;
@@ -575,10 +575,10 @@
   box-shadow: 0 25px 70px rgba(0,0,0,.5);
 }
 
-.modal-header { display: flex; justify-content: space-between; gap: 20px; }
-.modal-header h2 { margin: 0; }
-.modal-header p { margin: 6px 0 0; color: var(--muted); font-size: 14px; }
-.modal-header > button {
+.modal-backdrop .modal-header { display: flex; justify-content: space-between; gap: 20px; }
+.modal-backdrop .modal-header h2 { margin: 0; }
+.modal-backdrop .modal-header p { margin: 6px 0 0; color: var(--muted); font-size: 14px; }
+.modal-backdrop .modal-header > button {
   width: 34px;
   height: 34px;
   display: grid;
@@ -589,15 +589,15 @@
   color: #b9bec2;
 }
 
-.modal label {
+.modal-backdrop .modal label {
   display: grid;
   gap: 8px;
   margin-top: 25px;
   color: #d8dcdf;
   font-size: 14px;
 }
-.modal input,
-.modal select {
+.modal-backdrop .modal input,
+.modal-backdrop .modal select {
   height: 46px;
   padding: 0 13px;
   border: 1px solid #303638;
@@ -606,14 +606,14 @@
   background: #0b0e0f;
   color: #fff;
 }
-.modal select { appearance: none; }
-.modal input:focus,
-.modal select:focus { border-color: var(--coral); }
+.modal-backdrop .modal select { appearance: none; }
+.modal-backdrop .modal input:focus,
+.modal-backdrop .modal select:focus { border-color: var(--coral); }
 
-.modal-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 25px; }
-.modal-actions button { padding: 11px 17px; border-radius: 7px; }
-.modal-actions .secondary { border: 1px solid #343a3d; background: #171a1c; color: #fff; }
-.modal-actions .primary { border: 0; background: var(--coral); color: #fff; }
+.modal-backdrop .modal-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 25px; }
+.modal-backdrop .modal-actions button { padding: 11px 17px; border-radius: 7px; }
+.modal-backdrop .modal-actions .secondary { border: 1px solid #343a3d; background: #171a1c; color: #fff; }
+.modal-backdrop .modal-actions .primary { border: 0; background: var(--coral); color: #fff; }
 
 @media (max-width: 1250px) {
   .projects-page .sidebar { width: 230px; }

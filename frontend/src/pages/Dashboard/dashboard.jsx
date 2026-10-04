@@ -9,21 +9,12 @@ import RecentProjects from "./components/RecentProjects";
 import ReviewRequired from "./components/ReviewRequired";
 import DocumentationOverview from "./components/DocumentationOverview";
 import DocumentationChart from "./components/DocumentationChart";
+import {getToken} from "../../utils/getToken.js";
 import Tips from "./components/Tips";
 import Toast from "./components/Toast";
 
-const reviewsData = [
-  { id: 1, title: "Update API endpoints", description: "3 changes • 2 comments" },
-  { id: 2, title: "Student ERP", description: "7 docstrings • 3 comments • 1 README" },
-  { id: 3, title: "Fix authentication flow", description: "5 changes • 4 comments" },
-];
+const reviewsData = [];
 
-function getToken() {
-  return (
-    localStorage.getItem("access_token") ||
-    sessionStorage.getItem("access_token")
-  );
-}
 
 function getGitHubMessage() {
   const params =
@@ -118,8 +109,6 @@ export default function Dashboard() {
 
   const [search, setSearch] = useState("");
 
-  const [activeMenu, setActiveMenu] = useState("Dashboard");
-
   const [darkMode, setDarkMode] = useState(true);
 
   const [showProfile, setShowProfile] = useState(false);
@@ -136,11 +125,15 @@ export default function Dashboard() {
     const [documentationRuns, setDocumentationRuns] = useState([]);
 
     const [documentationData, setDocumentationData] = useState({
-      docstrings: 0,
-      comments: 0,
-      readme: 0,
-      reviews: 0,
-    });
+          docstrings: 0,
+          comments: 0,
+          readme: 0,
+          reviews: 0,
+          functions: 0,
+          classes: 0,
+          methods: 0,
+          modules: 0,
+        });
 
     const [documentationLoading, setDocumentationLoading] = useState(true);
 
@@ -149,7 +142,9 @@ export default function Dashboard() {
 
     const handleViewDocumentation = (project) => {
       const jobId = project?.latest_job_id;
-      navigate(`/docpilot?projectId=${encodeURIComponent(project.id)}${jobId ? `&jobId=${encodeURIComponent(jobId)}` : ""}`);
+      navigate(
+          `/docpilot?projectId=${encodeURIComponent(project.id)}${jobId ? `&jobId=${encodeURIComponent(jobId)}` : ""}`
+      );
     };
 
     const handleGenerateDocumentation = (project) => {
@@ -195,7 +190,10 @@ export default function Dashboard() {
 
       const runs = await getDocumentationRuns();
 
+      console.log("runs " , runs);
+
       setDocumentationRuns(runs);
+
     } catch (error) {
       console.error(
         "Failed to fetch documentation runs:",
@@ -203,7 +201,9 @@ export default function Dashboard() {
       );
 
       setDocumentationRuns([]);
-    } finally {
+
+    }
+    finally {
       setDocumentationLoading(false);
     }
   };
@@ -218,28 +218,43 @@ export default function Dashboard() {
   );
 
   const totals = filteredRuns.reduce(
-    (acc, run) => ({
-      docstrings:
-        acc.docstrings + (run.docstrings_count ?? 0),
+      (acc, run) => ({
+        docstrings:
+          acc.docstrings + (run.docstrings_count ?? 0),
 
-      comments:
-        acc.comments + (run.comments_count ?? 0),
+        comments:
+          acc.comments + (run.comments_count ?? 0),
 
-      readme:
-        acc.readme + (run.readme_count ?? 0),
+        readme:
+          acc.readme + (run.readme_count ?? 0),
 
-      reviews: acc.reviews,
-    }),
-    {
-      docstrings: 0,
-      comments: 0,
-      readme: 0,
-      reviews: 0,
-    }
-  );
+        reviews:
+          acc.reviews,
 
-  setDocumentationData(totals);
+        functions:
+          acc.functions + (run.functions_count ?? 0),
 
+        classes:
+          acc.classes + (run.classes_count ?? 0),
+
+        methods:
+          acc.methods + (run.methods_count ?? 0),
+
+        modules:
+          acc.modules + (run.modules_count ?? 0),
+      }),
+      {
+        docstrings: 0,
+        comments: 0,
+        readme: 0,
+        reviews: 0,
+        functions: 0,
+        classes: 0,
+        methods: 0,
+        modules: 0,
+      }
+    );
+    setDocumentationData(totals);
   }, [documentationRuns, month]);
 
   /* =========================================================
@@ -280,7 +295,8 @@ export default function Dashboard() {
         }));
 
         setProjects(mappedProjects);
-      } catch (error) {
+      }
+      catch (error) {
         console.error("Could not load projects:", error);
 
         if (!cancelled) {
@@ -335,6 +351,7 @@ export default function Dashboard() {
         );
 
         setUser(data);
+
       } catch (error) {
         console.error(
           "Failed to load current user:",
@@ -493,25 +510,6 @@ export default function Dashboard() {
   };
 
   /* =========================================================
-     SIDEBAR
-     ========================================================= */
-
-  const selectMenu = (
-    item
-  ) => {
-    setActiveMenu(item);
-
-    if (
-      item !==
-      "Dashboard"
-    ) {
-      notify(
-        `${item} selected`
-      );
-    }
-  };
-
-  /* =========================================================
      TOAST
      ========================================================= */
 
@@ -546,37 +544,21 @@ export default function Dashboard() {
      USER
      ========================================================= */
 
-  const userName =
-    user.name || "User";
+  const userName = user.name || "User";
 
-  const userEmail =
-    user.email || "";
+  const userEmail = user.email || "";
 
-  const avatarLetter =
-    userName
-      .charAt(0)
-      .toUpperCase();
+  const avatarLetter = userName.charAt(0).toUpperCase();
 
-  const providers =
-    user.providers?.length
-      ? user.providers.join(
-          ", "
-        )
-      : "local";
+  const providers = user.providers?.length ? user.providers.join(", ") : "local";
 
-  const verificationText =
-    user.is_verified
-      ? "Verified"
-      : "Not verified";
+  const verificationText = user.is_verified ? "Verified" : "Not verified";
 
   /* =========================================================
      THEME
      ========================================================= */
 
-  const page =
-    darkMode
-      ? "bg-[#0d0f10] text-[#f2f3f4]"
-      : "bg-[#f4f5f6] text-[#17191c]";
+  const page = darkMode ? "bg-[#0d0f10] text-[#f2f3f4]" : "bg-[#f4f5f6] text-[#17191c]";
 
   return (
     <div

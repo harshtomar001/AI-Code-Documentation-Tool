@@ -5,9 +5,10 @@ import Icon from "../common/Icon.jsx";
 import BatchList from "./BatchList.jsx";
 import "./CompletionPanel.css";
 
-const isCommitted = (b) => {
+const isCommitted = (b, engine) => {
   const s = batchState(b);
   return (
+    Boolean(engine?.isBatchCommitted?.(b.id)) ||
     s === "done" ||
     s === "committed" ||
     b.status === "done" ||
@@ -17,6 +18,7 @@ const isCommitted = (b) => {
 };
 
 export default function CompletionPanel() {
+
   const engine = useEngine();
   const navigate = useNavigate();
 
@@ -37,7 +39,7 @@ export default function CompletionPanel() {
   const readmeCount = hasReadme ? 1 : 0;
   const batchesCount = batches.length || engine.totalBatches || 0;
 
-  const firstReadyIdx = batches.findIndex((b) => !isCommitted(b));
+  const firstReadyIdx = batches.findIndex((b) => !isCommitted(b, engine));
   const hasUncommitted = firstReadyIdx !== -1;
 
   const handleReview = () => {
@@ -52,11 +54,13 @@ export default function CompletionPanel() {
   };
 
   const handleBack = () => {
+
     if (engine.projectId) {
       navigate(`/repository/uploaded/${encodeURIComponent(engine.projectId)}`);
     } else {
       navigate("/dashboard");
     }
+
   };
 
   return (

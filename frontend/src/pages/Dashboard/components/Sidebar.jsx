@@ -15,6 +15,7 @@ import { ProjectSetupModal } from "./ActionCards";
 import { createProject } from "../../../api/projects";
 import { saveProjectFiles } from "../../../api/projectStore";
 
+
 const navItems = [
   ["Dashboard", "⌂"],
   ["Projects", "▱"],

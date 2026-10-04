@@ -1,8 +1,17 @@
-"""Persistent storage for uploaded project files."""
-
-from pathlib import Path
+import os
 import shutil
+import tempfile
+from pathlib import Path
 
+DEFAULT_STORAGE_ROOT = Path(
+    os.getenv(
+        "DOCPILOT_PROJECT_STORAGE_ROOT",
+        os.getenv(
+            "PROJECT_STORAGE_ROOT",
+            str(Path(tempfile.gettempdir()) / "docpilot_storage" / "project_storage"),
+        ),
+    )
+)
 
 MAX_FILE_BYTES = 10 * 1024 * 1024
 MAX_TOTAL_BYTES = 200 * 1024 * 1024
@@ -20,7 +29,7 @@ class ProjectStorage:
         self.root = (
             root
             if root is not None
-            else Path.cwd() / ".project_storage"
+            else DEFAULT_STORAGE_ROOT
         )
         self.root.mkdir(parents=True, exist_ok=True)
 

@@ -23,11 +23,11 @@ EventType = Literal[
     "started",
     "progress",
     "completed",
+    "committed",
     "finding",
     "info",
     "failed",
 ]
-
 
 class EventProgress(BaseModel):
     """Represent progress for a pipeline stage."""

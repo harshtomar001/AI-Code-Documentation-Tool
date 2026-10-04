@@ -228,3 +228,23 @@ export async function downloadJobArchive(
   anchor.remove();
   window.URL.revokeObjectURL(downloadUrl);
 }
+
+/**
+ * Get committed batches/changes for a job.
+ */
+export async function getJobCommits(jobId, token = null) {
+  const config = {};
+
+  if (token) {
+    config.headers = {
+      Authorization: `Bearer ${token}`,
+    };
+  }
+
+  const response = await api.get(
+    `/api/jobs/${encodeURIComponent(jobId)}/commits`,
+    config
+  );
+
+  return response.data;
+}

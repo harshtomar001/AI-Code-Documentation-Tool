@@ -9,9 +9,7 @@ export default function Pipeline() {
   const engine = useEngine();
   const [openKeys, setOpenKeys] = useState(() => new Set());
 
-  console.log("Count =>",engine.counts().ready); //
-  var count1 = engine.counts().ready;
-  console.log("Count1 => ",count1);
+  const count1 = engine.counts().ready;
 
   const toggle = (key) =>
     setOpenKeys((prev) => {

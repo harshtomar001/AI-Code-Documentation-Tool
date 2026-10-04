@@ -11,3 +11,6 @@
 .cm span { min-width: 0; overflow-wrap: anywhere; }
 .cm em { font-style: normal; font-weight: 600; color: var(--green); font-size: 12.5px; }
 @keyframes cm-in { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: none; } }
+.cm--pending { opacity: 0.75; }
+.cm--pending code, .cm--pending em { color: var(--muted); }
+.cm__ago { color: var(--muted); font-size: 12px; }

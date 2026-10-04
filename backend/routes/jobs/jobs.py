@@ -124,17 +124,21 @@ async def get_job(
 
     if job is None:
         result = await db.execute(
-            select(DocumentationBatch)
-            .where(DocumentationBatch.job_id == job_id)
-            .limit(1)
+            select(DocumentationBatch).where(DocumentationBatch.job_id == job_id)
         )
-        batch = result.scalar_one_or_none()
-        if batch is not None:
+        rows = result.scalars().all()
+        if rows:
+            total = max((r.total_batches or 0) for r in rows)
+            complete = total > 0 and len(rows) >= total
             return JobInfo(
                 job_id=job_id,
-                project_id=str(batch.project_id) if batch.project_id else None,
-                status="completed",
-                message="Core AI documentation job completed",
+                project_id=str(rows[0].project_id) if rows[0].project_id else None,
+                status="completed" if complete else "failed",
+                message=(
+                    "Core AI documentation job completed"
+                    if complete
+                    else "Job was interrupted"
+                ),
             )
 
         raise HTTPException(

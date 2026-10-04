@@ -9,6 +9,7 @@ export default function ReviewFooter({ batch }) {
   const pend = pendingCount(batch);
   const readyBatches = engine.batches.filter((x) => x.status !== 'done' && x.status !== 'committed' && pendingCount(x) > 0);
   const readyPend = readyBatches.reduce((n, x) => n + pendingCount(x), 0);
+  const busy = Boolean(engine.isBatchCommitting?.(batch.id));
 
 
   return (
@@ -17,13 +18,13 @@ export default function ReviewFooter({ batch }) {
         This file: {f.hunks.length - fp} of {f.hunks.length} changes handled. This batch: {pend} left.
       </div>
       <div className="modal__foot-btns">
-        <button className="btn" disabled={!fp} onClick={() => engine.commitFile(batch, batch.page)}>
+        <button className="btn" disabled={!fp || busy} onClick={() => engine.commitFile(batch, batch.page)}>
           Commit all in this file ({fp})
         </button>
-        <button className="btn" disabled={!pend} onClick={() => engine.commitBatch(batch)}>
-          Commit all in batch {batch.id} ({pend})
+        <button className="btn" disabled={!pend || busy} onClick={() => engine.commitBatch(batch)}>
+          {busy ? 'Committing…' : `Commit all in batch ${batch.id} (${pend})`}
         </button>
-        <button className="btn btn--accent" disabled={!readyPend} onClick={() => engine.requestCommitRepo()}>
+        <button className="btn btn--accent" disabled={!readyPend || busy} onClick={() => engine.requestCommitRepo()}>
           {engine.confirmRepo
             ? `Confirm: commit ${readyPend} now and auto-commit the rest`
             : 'Commit entire repository'}

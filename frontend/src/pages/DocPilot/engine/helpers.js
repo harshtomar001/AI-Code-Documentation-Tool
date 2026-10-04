@@ -1,9 +1,9 @@
 import { DIRS, REPO } from '../data/constants.js';
 import { TEMPLATES } from '../data/samples.js';
 
-export const pendingHunks = (f) => f.hunks.filter((h) => h.status === 'pending');
-export const pendingCount = (b) => b.files.reduce((n, f) => n + pendingHunks(f).length, 0);
-export const changesIn = (b) => b.files.reduce((n, f) => n + f.hunks.length, 0);
+export const pendingHunks = (f) => (f && f.hunks ? f.hunks.filter((h) => h.status === 'pending') : []);
+export const pendingCount = (b) => (b && b.files ? b.files.reduce((n, f) => n + pendingHunks(f).length, 0) : 0);
+export const changesIn = (b) => (b && b.files ? b.files.reduce((n, f) => n + (f && f.hunks ? f.hunks.length : 0), 0) : 0);
 
 /** One of: queued, generating, ready, partial, done */
 export function batchState(b) {
@@ -11,7 +11,7 @@ export function batchState(b) {
   if (b.status === 'done' || b.status === 'committed') return 'done';
   if (b.files && b.files.length > 0 && pendingCount(b) === 0 && (b.status === 'ready' || b.status === 'partial'))
     return 'done';
-  if (b.status === 'ready' && b.files && b.files.some((f) => f.hunks.some((h) => h.status !== 'pending')))
+  if (b.status === 'ready' && b.files && b.files.some((f) => f.hunks && f.hunks.some((h) => h.status !== 'pending')))
     return 'partial';
   return b.status;
 }

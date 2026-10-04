@@ -1,6 +1,4 @@
-
 import { Routes, Route } from "react-router-dom";
-
 import Landing from "../pages/Landing/landing";
 import Login from "../pages/Login/login";
 import Register from "../pages/Register/Register";
@@ -9,6 +7,8 @@ import OAuthCallback from "../pages/OAuthCallback/OAuthCallback";
 import Repository from "../pages/Repository/Repository";
 import Forgot from "../pages/Login/Forgot";
 import ProtectedRoute from "./ProtectedRoute";
+import History from "../pages/History/History.jsx";
+import Documentation from "../pages/Documentation/Documentation.jsx"
 import DocPilot from "../pages/DocPilot/DocPilot";
 import Projects from "../pages/Projects/Projects";
 import DashboardLayout from "../layouts/DashboardLayout";
@@ -51,9 +51,17 @@ function AppRoutes() {
           <Route
           path="/repository/uploaded/:projectId"
           element={<Repository />}
+
         />
+            <Route path="/documentation" element={<Documentation />} />
+            <Route path="/documentation/:projectId" element={<Documentation />} />
+            <Route path="/documentation/uploaded/:projectId" element={<Documentation />} />
+
+            <Route path= "/history"  element={<History />} />
+
             <Route path="/docpilot" element={<DocPilot />} />
           <Route path="/projects" element={<Projects />} />
+
         </Route>
       </Route>
     </Routes>

@@ -23,7 +23,7 @@ const LABEL = {
 const matches = (filter, r) => {
   if (filter === 'all') return true;
   if (filter === 'review') {
-    return !r.isCommitted && (r.s === 'ready' || r.s === 'partial');
+    return !r.isCommitted && !r.committing && (r.s === 'ready' || r.s === 'partial');
   }
   if (filter === 'done') {
     return r.isCommitted || r.s === 'done';
@@ -31,16 +31,19 @@ const matches = (filter, r) => {
   return filter === r.s;
 };
 
-const checkIsCommitted = (b) => {
+const checkIsCommitted = (b, engine) => {
   const s = batchState(b);
+
   return (
+    Boolean(engine.isBatchCommitted?.(b.id)) ||
     s === 'done' ||
     s === 'committed' ||
     b.status === 'done' ||
-    b.status === 'committed' ||
-    (b.files && b.files.length > 0 && pendingCount(b) === 0)
+    b.status === 'committed'
   );
 };
+
+
 
 /** The dropdown behind "Creating batches": displays real and simulated batches dynamically. */
 export default function BatchList() {
@@ -48,19 +51,21 @@ export default function BatchList() {
   const [filter, setFilter] = useState('all');
 
   const rows = engine.batches.map((b, idx) => {
-    const committed = checkIsCommitted(b);
+    const committing = Boolean(engine.isBatchCommitting?.(b.id));
+    const committed = !committing && checkIsCommitted(b, engine);
     return {
       b,
       idx,
       s: committed ? 'done' : batchState(b),
       isCommitted: committed,
+      committing,
     };
   });
 
   const count = (f) => rows.filter((r) => matches(f, r)).length;
   const shown = rows.filter((r) => matches(filter, r));
   const firstReady = rows.find(
-    (r) => !r.isCommitted && (r.s === 'ready' || r.s === 'partial')
+    (r) => !r.isCommitted && !r.committing && (r.s === 'ready' || r.s === 'partial')
   );
 
   return (
@@ -106,7 +111,7 @@ export default function BatchList() {
           <div className="batches__empty">No batches in this list yet.</div>
         )}
 
-        {shown.map(({ b, idx, s, isCommitted }) => {
+        {shown.map(({ b, idx, s, isCommitted, committing }) => {
           const filesCount = b.files?.length || 0;
           const changesCount = changesIn(b);
           const hasReadme = Boolean(b.readme);
@@ -140,7 +145,9 @@ export default function BatchList() {
                   </span>
                 )}
 
-                {isCommitted ? (
+                {committing ? (
+                  <span className="pill pill--generating">Committing…</span>
+                ) : isCommitted ? (
                   <div className="batch__status-badges">
                     <span className="pill pill--done">✓ Reviewed</span>
                     <span className="pill pill--committed">✓ Committed</span>
@@ -159,6 +166,7 @@ export default function BatchList() {
                   <button
                     type="button"
                     className="btn btn--sm btn--accent"
+                    disabled={committing}
                     onClick={() => engine.openModal(idx)}
                   >
                     Review Batch

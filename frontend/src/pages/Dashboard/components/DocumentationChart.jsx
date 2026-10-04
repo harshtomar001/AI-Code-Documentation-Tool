@@ -14,6 +14,8 @@ export default function DocumentationChart({
   const methods = data.methods ?? 0;
   const modules = data.modules ?? 0;
 
+  console.log(data);
+
   const total =
     functions +
     classes +

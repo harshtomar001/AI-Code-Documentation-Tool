@@ -108,3 +108,15 @@ def test_commit_all_batches_updates_status() -> None:
     assert len(batches) == 2
     assert all(b["status"] == "committed" for b in batches)
 
+    # GET /api/jobs/{job_id}/commits must return committed batch summaries
+    commits_res = client.get(f"/api/jobs/{job_id}/commits")
+    assert commits_res.status_code == 200
+    commits = commits_res.json()
+    assert len(commits) == 2
+    for c in commits:
+        assert "sha" in c
+        assert "message" in c
+        assert "batch_ids" in c
+        assert "changes" in c
+        assert "committed_at" in c
+

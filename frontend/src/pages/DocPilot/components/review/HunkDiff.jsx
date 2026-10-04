@@ -52,7 +52,8 @@ export default function HunkDiff({ batch, fi, hi }) {
           )}
           {h.status === 'committed' && (
             <span className="hunk__st is-ok">
-              Committed {h.sha && <code>{h.sha}</code>}
+              {h.sha || batch.status === 'done' || !engine.realJob ? 'Committed' : 'Approved'}{' '}
+              {h.sha && <code>{h.sha}</code>}
             </span>
           )}
           {h.status === 'skipped' && (

@@ -10,6 +10,8 @@ import {
   downloadJobArchive,
 } from "../../../api/jobs.js";
 
+import * as jobsApi from "../../../api/jobs.js";
+
 export { downloadJobArchive, commitJobBatch, commitAllJobBatches };
 
 
@@ -128,4 +130,25 @@ export function subscribeToJob(jobId, handlers = {}) {
   };
 
   return source;
+}
+
+
+/**
+ * Fetch the commit history of a job.
+ *
+ * Needs `getJobCommits(jobId, token)` in api/jobs.js (GET /jobs/{id}/commits).
+ * Returns null when the endpoint is not available so the UI can fall back
+ * to what the commit responses already told us.
+ */
+export async function fetchJobCommits(jobId, token = null) {
+  if (typeof jobsApi.getJobCommits !== "function") return null;
+  try {
+    const res = await jobsApi.getJobCommits(jobId, token);
+    const data = res?.data ?? res;
+    if (Array.isArray(data)) return data;
+    if (Array.isArray(data?.commits)) return data.commits;
+    return null;
+  } catch {
+    return null;
+  }
 }

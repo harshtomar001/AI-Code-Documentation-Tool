@@ -1,11 +1,9 @@
 import { useEffect, useRef, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import {useNavigate, useSearchParams} from "react-router-dom";
 
 import { Engine } from "./engine/Engine.js";
 import { EngineContext } from "./engine/EngineContext.js";
-
-import Topbar from "./components/layout/Topbar.jsx";
-
+import AppTopBar from "../common/AppTopBar.jsx";
 import RepoHeader from "./components/demo/RepoHeader.jsx";
 import Pipeline from "./components/demo/Pipeline.jsx";
 import EventFeed from "./components/demo/EventFeed.jsx";
@@ -25,9 +23,15 @@ import { getProject } from "../../api/projectStore.js";
 import "./styles/tokens.css";
 import "./styles/base.css";
 import "./DocPilot.css";
+import {getCurrentUser} from "../../api/auth.js";
+
+
 
 function DocPilotContent() {
   const engine = useEngine();
+
+
+
 
   const isCompleted =
     engine.realJob && (engine.finished || engine.jobStatus === "completed");
@@ -69,11 +73,95 @@ export default function DocPilot() {
   const [engine] = useState(() => new Engine());
   const [theme, setTheme] = useState("dark");
 
+  const navigate = useNavigate();
+
+  const [user, setUser] = useState(null);
+  const [loadingUser, setLoadingUser] = useState(true);
+  const [darkMode, setDarkMode] = useState(true);
+  const [showProfile, setShowProfile] = useState(false);
+  const [showNotifications, setShowNotifications] = useState(false);
+
   const [searchParams, setSearchParams] = useSearchParams();
 
   const projectId = searchParams.get("projectId");
   const jobIdFromQuery = searchParams.get("jobId");
   const shouldStart = searchParams.get("start") === "true";
+
+
+  const logout = () => {
+    localStorage.removeItem(
+      "access_token"
+    );
+
+    sessionStorage.removeItem(
+      "access_token"
+    );
+
+    navigate(
+      "/login",
+      { replace: true }
+    );
+  };
+
+  useEffect(() => {
+    const loadUser = async () => {
+      const token = getToken();
+
+      if (!token) {
+        navigate(
+          "/login",
+          { replace: true }
+        );
+        return;
+      }
+
+      try {
+        const data =
+          await getCurrentUser(
+            token
+          );
+
+        console.log(
+          "Authenticated user:",
+          data
+        );
+
+        setUser(data);
+
+      } catch (error) {
+        console.error(
+          "Failed to load current user:",
+          error
+        );
+
+        localStorage.removeItem(
+          "access_token"
+        );
+
+        sessionStorage.removeItem(
+          "access_token"
+        );
+
+        navigate(
+          "/login",
+          { replace: true }
+        );
+      }
+      finally {
+
+        setLoadingUser(false);
+      }
+    };
+
+    loadUser();
+
+  }, [navigate]);
+
+  useEffect(() => {
+    return () => {
+      engine.stop();
+    };
+  }, [engine]);
 
   useEffect(() => {
     let cancelled = false;
@@ -83,12 +171,12 @@ export default function DocPilot() {
 
       if (!projectId) {
         // Run simulated demo
+        if (engine.realJob) {
+          engine.stop();
+        }
         engine.start({ simulate: true });
         return;
       }
-
-      // Real Core AI job
-      engine.start({ simulate: false });
 
       // Determine the job to load or start
       let targetJobId = jobIdFromQuery || null;
@@ -98,6 +186,25 @@ export default function DocPilot() {
           targetJobId = localStorage.getItem(`docpilot_job_${projectId}`);
         } catch {}
       }
+
+      // If engine is ALREADY running or loaded for this exact job and not starting a new one, skip!
+      if (
+        engine.realJob &&
+        engine.jobId &&
+        (engine.jobId === targetJobId || engine.jobId === jobIdFromQuery) &&
+        !shouldStart
+      ) {
+
+        return;
+      }
+
+      // If switching to a different job, stop the previous one
+      if (engine.jobId && targetJobId && engine.jobId !== targetJobId) {
+        engine.stop();
+      }
+
+      // Real Core AI job
+      engine.start({ simulate: false });
 
       let projectName = "repository";
       try {
@@ -131,7 +238,7 @@ export default function DocPilot() {
             { replace: true }
           );
         }
-        await engine.loadExistingJob(projectId, targetJobId, token);
+        await engine.loadExistingJob(projectId, targetJobId, token, projectName);
       }
     };
 
@@ -139,7 +246,6 @@ export default function DocPilot() {
 
     return () => {
       cancelled = true;
-      engine.stop();
     };
   }, [engine, projectId, jobIdFromQuery, shouldStart, setSearchParams]);
 
@@ -147,13 +253,71 @@ export default function DocPilot() {
     document.documentElement.dataset.theme = theme;
   }, [theme]);
 
+  const userName = user?.name || "User";
+
+    const userEmail = user?.email || "";
+
+    const avatarLetter = userName.charAt(0).toUpperCase();
+
+    const providers =
+      user?.providers?.length
+        ? user.providers.join(", ")
+        : "local";
+
+    const verificationText =
+      user?.is_verified
+        ? "Verified"
+        : "Not verified";
+
   return (
     <EngineContext.Provider value={engine}>
       <div className="docpilot-page">
-        <Topbar
-          theme={theme}
-          onToggleTheme={() =>
-            setTheme((t) => (t === "dark" ? "light" : "dark"))
+        <AppTopBar
+          search={false}
+          setSearch={
+            false
+          }
+          darkMode={
+            true
+          }
+          setDarkMode={
+            false
+          }
+          showNotifications={
+            showNotifications
+          }
+          setShowNotifications={
+            setShowNotifications
+          }
+          showProfile={
+            showProfile
+          }
+          setShowProfile={
+            setShowProfile
+          }
+          userName={
+            userName
+          }
+          avatarLetter={
+            avatarLetter
+          }
+          userEmail={
+            userEmail
+          }
+          verificationText={
+            verificationText
+          }
+          providers={
+            providers
+          }
+          reviewsCount={
+            0
+          }
+          onNotify={
+           null
+          }
+          onLogout={
+            logout
           }
         />
 

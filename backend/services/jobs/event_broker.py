@@ -65,3 +65,11 @@ class JobEventBroker:
     def subscriber_count(self, job_id: str) -> int:
         """Return the number of active subscribers for a job."""
         return len(self._queues.get(job_id, set()))
+
+    def has_events(self, job_id: str) -> bool:
+        """Return True if the broker has recorded events for a job."""
+        return bool(self._events.get(job_id))
+
+    def is_closed(self, job_id: str) -> bool:
+        """Return True if the job has been closed."""
+        return job_id in self._closed_jobs

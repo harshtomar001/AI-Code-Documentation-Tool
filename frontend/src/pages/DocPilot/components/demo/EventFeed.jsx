@@ -25,11 +25,12 @@ export default function EventFeed() {
   const engine = useEngine();
   const listRef = useRef(null);
 
+
   useEffect(() => {
     if (listRef.current) {
       listRef.current.scrollTop = listRef.current.scrollHeight;
     }
-  }, [engine.events.length]);
+  }, [engine.events.length, engine.events[engine.events.length - 1]?.id]);
 
   return (
     <section className="panel" aria-labelledby="feed-h">

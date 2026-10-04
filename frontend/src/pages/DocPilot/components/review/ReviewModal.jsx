@@ -26,10 +26,11 @@ export default function ReviewModal() {
 
   const [activeTab, setActiveTab] = useState("changes");
   const [copiedReadme, setCopiedReadme] = useState(false);
+  const [committingBatch, setCommittingBatch] = useState(false);
 
   // If a batch has no code files but has a README, switch to the readme tab
   useEffect(() => {
-    if (b && b.files && b.files.length === 0 && b.readme) {
+    if (b && (!b.files || b.files.length === 0) && b.readme) {
       setActiveTab("readme");
     } else {
       setActiveTab("changes");
@@ -72,7 +73,13 @@ export default function ReviewModal() {
 
   useEffect(() => {
     if (modal.open) {
+      const prevOverflow = document.body.style.overflow;
+      document.body.style.overflow = "hidden";
       closeRef.current?.focus({ preventScroll: true });
+
+      return () => {
+        document.body.style.overflow = prevOverflow;
+      };
     }
   }, [modal.open]);
 
@@ -86,7 +93,12 @@ export default function ReviewModal() {
     return null;
   }
 
-  const done = b.status === "done" || b.status === "committed" || (b.files && b.files.length > 0 && pendingCount(b) === 0 && b.status !== "generating");
+  const committingNow = Boolean(engine.isBatchCommitting?.(b.id));
+  const statusDone = b.status === "done" || b.status === "committed";
+  // Real jobs: only the backend's confirmation counts as "done".
+  const done = engine.realJob
+    ? statusDone
+    : statusDone || (b.files && b.files.length > 0 && pendingCount(b) === 0 && b.status !== "generating");
   const file = b.files?.[b.page];
   const totalBatches = engine.totalBatches || REPO.batches;
   const hasFiles = b.files && b.files.length > 0;
@@ -97,21 +109,30 @@ export default function ReviewModal() {
 
   let reviewStatusLabel = "Ready for review";
   let reviewStatusClass = "ready";
-  if (done || (totalChanges > 0 && pending === 0)) {
+
+  if (committingNow) {
+    reviewStatusLabel = "Committing…";
+    reviewStatusClass = "generating";
+  }
+  else if (done || (!engine.realJob && totalChanges > 0 && pending === 0)) {
     reviewStatusLabel = "Reviewed & Committed";
     reviewStatusClass = "done";
-  } else if (pending < totalChanges && pending > 0) {
+  }
+  else if (pending < totalChanges && pending > 0) {
     reviewStatusLabel = "Partially reviewed";
     reviewStatusClass = "partial";
-  } else if (b.status === "generating") {
+  }
+  else if (b.status === "generating") {
     reviewStatusLabel = "Generated";
     reviewStatusClass = "generating";
-  } else {
+  }
+  else {
     reviewStatusLabel = "Ready for review";
     reviewStatusClass = "ready";
   }
 
   const handleSelectHunk = (hi) => {
+
     const el = document.getElementById(`hunk-${b.id}-${b.page}-${hi}`);
     if (el) {
       el.scrollIntoView({ behavior: "smooth", block: "center" });
@@ -127,9 +148,25 @@ export default function ReviewModal() {
     setTimeout(() => setCopiedReadme(false), 2000);
   };
 
+  const handleCommitBatch = async () => {
+      if (committingBatch || committingNow) return;
+
+      setCommittingBatch(true);
+
+      try {
+        const success = await engine.commitBatch(b);
+
+        if (!success) {
+          return;
+        }
+      } finally {
+        setCommittingBatch(false);
+      }
+    };
+
   const modalContent = (
     <div
-      className={`modal ${modal.open ? "is-open" : ""}`}
+      className={`review-overlay ${modal.open ? "is-open" : ""}`}
       role="dialog"
       aria-modal="true"
       aria-labelledby="review-title"
@@ -140,7 +177,7 @@ export default function ReviewModal() {
         }
       }}
     >
-      <div className={`modal__card ${done ? "is-done" : ""}`}>
+      <div className={`review-window modal__card ${done ? "is-done" : ""}`}>
         <div className="modal__head">
           <div className="modal__head-info">
             <div className="modal__title-row">
@@ -248,15 +285,20 @@ export default function ReviewModal() {
               {hasReadme && (
                 <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
                   {!done && (
-                    <button
-                      type="button"
-                      className="btn btn--sm btn--accent"
-                      onClick={() => {
-                        b.status = "done";
-                        engine.afterCommit(b);
-                      }}
-                    >
-                      Approve & Commit Batch
+                   <button
+                  type="button"
+                  className="btn btn--sm btn--accent"
+                  onClick={handleCommitBatch}
+                  disabled={committingBatch}
+                >
+                      {committingBatch ? (
+                        <>
+                          <span className="btn__spinner" aria-hidden="true" />
+                          Committing...
+                        </>
+                      ) : (
+                        "Approve & Commit Batch"
+                      )}
                     </button>
                   )}
                   <button
@@ -285,6 +327,16 @@ export default function ReviewModal() {
                     onClick={() => setActiveTab("changes")}
                   >
                     View Code Changes ({changesIn(b)})
+                  </button>
+                )}
+                {!hasFiles && !done && (
+                  <button
+                    type="button"
+                    className="btn btn--sm btn--accent"
+                    onClick={handleCommitBatch}
+                    disabled={committingBatch}
+                  >
+                    {committingBatch ? "Committing..." : "Approve & Commit Batch"}
                   </button>
                 )}
               </div>
@@ -335,6 +387,16 @@ export default function ReviewModal() {
                     onClick={() => setActiveTab("readme")}
                   >
                     View Generated README
+                  </button>
+                )}
+                {!done && (
+                  <button
+                    type="button"
+                    className="btn btn--sm btn--accent"
+                    onClick={handleCommitBatch}
+                    disabled={committingBatch}
+                  >
+                    {committingBatch ? "Committing..." : "Approve & Commit Batch"}
                   </button>
                 )}
               </div>

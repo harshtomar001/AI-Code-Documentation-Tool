@@ -189,10 +189,17 @@ export function normalizeBatch(batchResult) {
   const isCommitted =
     batchResult.status === "committed" || batchResult.status === "done";
 
+  const commitSha =
+    batchResult.commit_sha ||
+    batchResult.commit?.sha ||
+    batchResult.commit_id ||
+    null;
+
   if (isCommitted) {
     for (const file of files) {
       for (const hunk of file.hunks) {
         hunk.status = "committed";
+        if (commitSha) hunk.sha = String(commitSha).slice(0, 7);
       }
     }
   }
@@ -213,8 +220,9 @@ export function normalizeBatch(batchResult) {
     files,
     changes: beforeAfterList,
     readme: batchResult.readme ?? null,
+    commitSha: commitSha ? String(commitSha).slice(0, 7) : null,
+    committedAt: Date.parse(batchResult.committed_at || "") || null,
   };
-
 }
 
 export function normalizeBatches(batchResults) {
@@ -225,4 +233,37 @@ export function normalizeBatches(batchResults) {
     .slice()
     .sort((a, b) => (a.batch_id ?? 0) - (b.batch_id ?? 0))
     .map(normalizeBatch);
+}
+
+
+/**
+ * Backends differ in what the commit endpoints return (axios response vs body,
+ * sha / commit_sha / commit.sha ...). Normalise whatever comes back.
+ */
+export function extractCommitInfo(result) {
+  const d = result?.data ?? result ?? {};
+  const c = d.commit ?? d;
+  const sha = c.sha || c.commit_sha || c.commit_id || d.commit_sha || null;
+  return {
+    sha: sha ? String(sha).slice(0, 7) : null,
+    message: c.message || c.commit_message || d.message || null,
+    at: Date.parse(c.committed_at || c.created_at || c.timestamp || "") || null,
+    count: c.changes ?? c.change_count ?? c.files_changed ?? null,
+    batchIds: d.batch_ids || d.committed_batches || (c.batch_id != null ? [c.batch_id] : null),
+  };
+}
+
+/** One commit row as returned by an optional GET /jobs/{id}/commits endpoint. */
+export function normalizeCommit(raw, index = 0) {
+  const full = raw.sha || raw.commit_sha || raw.id || `commit-${index}`;
+  const batchIds = raw.batch_ids || (raw.batch_id != null ? [raw.batch_id] : []);
+  return {
+    id: String(full),
+    sha: String(full).slice(0, 7),
+    msg: raw.message || raw.msg || "docs: documentation update",
+    n: raw.changes ?? raw.change_count ?? raw.files_changed ?? 1,
+    batchIds: batchIds.map(Number),
+    at: Date.parse(raw.committed_at || raw.created_at || raw.timestamp || "") || null,
+    source: "server",
+  };
 }

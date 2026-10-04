@@ -260,6 +260,17 @@ class JobWorker:
                     )
                 )
 
+            # Ensure all batch results and database persistence are finished before emitting job completed
+            if pending_batch_persistence:
+                await asyncio.gather(
+                    *(
+                        asyncio.wrap_future(future)
+                        for future in pending_batch_persistence
+                        if not future.done()
+                    ),
+                    return_exceptions=True,
+                )
+
             self.job_manager.update_job(
                 job_id,
                 status="completed",
@@ -272,6 +283,16 @@ class JobWorker:
                 type="completed",
                 message="Core AI documentation job completed",
             )
+
+            if pending_events:
+                await asyncio.gather(
+                    *(
+                        asyncio.wrap_future(future)
+                        for future in pending_events
+                        if not future.done()
+                    ),
+                    return_exceptions=True,
+                )
 
         except asyncio.CancelledError:
             self.job_manager.update_job(
@@ -320,18 +341,29 @@ class JobWorker:
         finally:
             publisher.unsubscribe(schedule_event)
 
-            for future in pending_batch_persistence:
-                if not future.done():
-                    future.cancel()
+            if pending_events:
+                await asyncio.gather(
+                    *(
+                        asyncio.wrap_future(future)
+                        for future in pending_events
+                        if not future.done()
+                    ),
+                    return_exceptions=True,
+                )
+
+            if pending_batch_persistence:
+                await asyncio.gather(
+                    *(
+                        asyncio.wrap_future(future)
+                        for future in pending_batch_persistence
+                        if not future.done()
+                    ),
+                    return_exceptions=True,
+                )
 
             for future in pending_events:
                 if not future.done():
                     future.cancel()
-
-            try:
-                await self.event_broker.close_job(job_id)
-            except Exception:
-                pass
 
             if self.workspace_manager is not None:
                 self.workspace_manager.cleanup(job_id)

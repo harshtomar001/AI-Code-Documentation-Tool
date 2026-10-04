@@ -24,3 +24,32 @@ export const fakeSha = () =>
 export function boldSegments(str) {
   return str.split('**').map((t, i) => ({ t, b: i % 2 === 1 }));
 }
+
+/** Deterministic 7-char hex id from a seed (stable across refreshes, unlike fakeSha). */
+export function stableSha(seed) {
+  let h1 = 0xdeadbeef, h2 = 0x41c6ce57;
+  const str = String(seed);
+  for (let i = 0; i < str.length; i++) {
+    const ch = str.charCodeAt(i);
+    h1 = Math.imul(h1 ^ ch, 2654435761);
+    h2 = Math.imul(h2 ^ ch, 1597334677);
+  }
+  h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507) ^ Math.imul(h2 ^ (h2 >>> 13), 3266489909);
+  h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507) ^ Math.imul(h1 ^ (h1 >>> 13), 3266489909);
+  return ((h2 >>> 0).toString(16).padStart(8, '0') + (h1 >>> 0).toString(16).padStart(8, '0')).slice(0, 7);
+}
+
+/** 14:03:22 (24h, local) */
+export function clockNow(ts = Date.now()) {
+  return new Date(ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
+}
+
+/** 3m ago, 12s ago */
+export function fmtAgo(ts) {
+  if (!ts) return '';
+  const s = Math.max(0, Math.round((Date.now() - ts) / 1000));
+  if (s < 5) return 'just now';
+  if (s < 60) return `${s}s ago`;
+  if (s < 3600) return `${Math.floor(s / 60)}m ago`;
+  return `${Math.floor(s / 3600)}h ago`;
+}
