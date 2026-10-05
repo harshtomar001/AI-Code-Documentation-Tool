@@ -6,18 +6,34 @@ import api from "./client";
 export async function uploadRepository(
   file,
   repositoryName = "repository",
-  token = null
+  token = null,
+  projectId = null,
+  onUploadProgress = null
 ) {
   const formData = new FormData();
 
   formData.append("repository", file);
   formData.append("repository_name", repositoryName);
+  if (projectId) {
+    formData.append("project_id", projectId);
+  }
 
   const config = {};
 
   if (token) {
     config.headers = {
       Authorization: `Bearer ${token}`,
+    };
+  }
+
+  if (onUploadProgress) {
+    config.onUploadProgress = (progressEvent) => {
+      if (progressEvent.total) {
+        const percent = Math.round(
+          (progressEvent.loaded * 100) / progressEvent.total
+        );
+        onUploadProgress(percent);
+      }
     };
   }
 

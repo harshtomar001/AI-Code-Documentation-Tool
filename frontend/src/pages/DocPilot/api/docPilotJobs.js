@@ -20,8 +20,14 @@ export { downloadJobArchive, commitJobBatch, commitAllJobBatches };
  *
  * Legacy flow. Kept for compatibility.
  */
-export async function startLocalJob(file, repositoryName, token = null) {
-  return uploadRepository(file, repositoryName, token);
+export async function startLocalJob(
+  file,
+  repositoryName,
+  token = null,
+  projectId = null,
+  onUploadProgress = null
+) {
+  return uploadRepository(file, repositoryName, token, projectId, onUploadProgress);
 }
 
 /**
