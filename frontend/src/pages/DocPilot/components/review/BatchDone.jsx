@@ -18,9 +18,15 @@ const isCommitted = (b, engine) => {
 
 export default function BatchDone({ batch }) {
   const engine = useEngine();
-  const branchName = engine.repositoryName
-    ? `ai-docs/${engine.repositoryName}`
-    : PR_BRANCH;
+  const projName =
+    engine.repositoryName ||
+    (typeof window !== "undefined"
+      ? new URLSearchParams(window.location.search).get("projectName") ||
+        localStorage.getItem("docpilot_last_repo")
+      : null) ||
+    "project";
+  const cleanName = projName.split("/").pop() || "project";
+  const branchName = `ai-docs/${cleanName}`;
   let c = 0, s = 0;
   (batch.files || []).forEach((f) =>
     (f.hunks || []).forEach((h) => {

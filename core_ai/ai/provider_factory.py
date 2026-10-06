@@ -3,6 +3,7 @@
 import os
 
 from .gemini_provider import GeminiProvider
+from .groq_provider import GroqProvider
 from .openrouter_provider import OpenRouterProvider
 from .provider import AIProvider
 
@@ -27,5 +28,8 @@ class ProviderFactory:
 
         if provider_name == "openrouter":
             return OpenRouterProvider()
+
+        if provider_name == "groq":
+            return GroqProvider()
 
         raise ValueError(f"Unsupported AI provider: {provider_name}")

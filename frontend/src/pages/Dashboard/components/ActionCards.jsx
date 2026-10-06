@@ -1115,6 +1115,13 @@ export default function ActionCards({
           error: "",
         });
 
+        if (saved?.name) {
+          try {
+            localStorage.setItem(`docpilot_repo_${saved.id}`, saved.name);
+            localStorage.setItem("docpilot_last_repo", saved.name);
+          } catch {}
+        }
+
         // Navigate to the repository inspection page
         navigate(
           `/repository/uploaded/${encodeURIComponent(saved.id)}`,

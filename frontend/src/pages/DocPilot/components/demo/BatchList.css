@@ -3,6 +3,8 @@
 .tab { border: 1px solid var(--line); background: var(--panel); color: var(--muted); border-radius: 999px; padding: 4px 12px; font-size: 12.5px; font-weight: 500; cursor: pointer; }
 .tab b { color: var(--ink); font-weight: 600; margin-left: 4px; font-variant-numeric: tabular-nums; }
 .tab[aria-pressed='true'] { border-color: var(--accent); background: var(--accent-soft); color: var(--ink); }
+.batches__reset-btn { opacity: 0.8; margin-left: 4px; transition: opacity 0.15s ease, border-color 0.15s ease; }
+.batches__reset-btn:hover { opacity: 1; border-color: var(--accent); }
 .batches__scroll { max-height: 360px; overflow: auto; border: 1px solid var(--line); border-radius: 10px; background: var(--panel); }
 .batch { display: grid; grid-template-columns: 88px minmax(0, 1fr) auto; gap: 12px; align-items: center; padding: 10px 14px; border-bottom: 1px solid var(--line-soft); border-left: 3px solid transparent; font-size: 13.5px; }
 .batch:last-child { border-bottom: 0; }

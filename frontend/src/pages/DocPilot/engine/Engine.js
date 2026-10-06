@@ -2811,6 +2811,20 @@ export class Engine {
     }
   }
 
+  /** Reset or re-synchronize the batch list intentionally when results finish or on demand. */
+  resetBatchList(hard = false) {
+    if (this.realJob && this.jobId) {
+      if (hard) {
+        this.committingBatchIds?.clear();
+      }
+      this.refreshRealBatches(getToken());
+      this.syncCommitsFromServer();
+    } else {
+      this.batches = makeBatches();
+    }
+    this.emit();
+  }
+
   /* ---------- commits (backend-backed) ---------- */
 
   /** Pull the real commit history if the API offers it. */

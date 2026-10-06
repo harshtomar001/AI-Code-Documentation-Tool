@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useEngine } from '../../hooks/useEngine.js';
 import { batchState, changesIn, pendingCount } from '../../engine/helpers.js';
 import './BatchList.css';
@@ -50,6 +50,15 @@ export default function BatchList() {
   const engine = useEngine();
   const [filter, setFilter] = useState('all');
 
+  // Intentional reset of batch list when documentation completes
+  useEffect(() => {
+    const isDone = engine.finished || engine.jobStatus === 'completed';
+    if (isDone) {
+      setFilter('all');
+      engine.resetBatchList?.();
+    }
+  }, [engine.finished, engine.jobStatus]);
+
   const rows = engine.batches.map((b, idx) => {
     const committing = Boolean(engine.isBatchCommitting?.(b.id));
     const committed = !committing && checkIsCommitted(b, engine);
@@ -88,6 +97,17 @@ export default function BatchList() {
               <b>{count(key)}</b>
             </button>
           ))}
+          <button
+            type="button"
+            className="tab batches__reset-btn"
+            title="Reset filters and reload batch data"
+            onClick={() => {
+              setFilter('all');
+              engine.resetBatchList?.(true);
+            }}
+          >
+            ↻ Reset
+          </button>
         </div>
 
         <button

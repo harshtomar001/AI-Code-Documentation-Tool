@@ -142,13 +142,43 @@ export default function Dashboard() {
 
     const handleViewDocumentation = (project) => {
       const jobId = project?.latest_job_id;
+      const projName = project?.name || "";
+      if (projName) {
+        try {
+          localStorage.setItem(`docpilot_repo_${project.id}`, projName);
+          localStorage.setItem("docpilot_last_repo", projName);
+        } catch {}
+      }
       navigate(
-          `/docpilot?projectId=${encodeURIComponent(project.id)}${jobId ? `&jobId=${encodeURIComponent(jobId)}` : ""}`
+        `/docpilot?projectId=${encodeURIComponent(project.id)}${jobId ? `&jobId=${encodeURIComponent(jobId)}` : ""}${projName ? `&projectName=${encodeURIComponent(projName)}` : ""}`,
+        {
+          state: {
+            projectId: project.id,
+            projectName: projName,
+            repositoryName: projName,
+          },
+        }
       );
     };
 
     const handleGenerateDocumentation = (project) => {
-      navigate(`/docpilot?projectId=${encodeURIComponent(project.id)}&start=true`);
+      const projName = project?.name || "";
+      if (projName) {
+        try {
+          localStorage.setItem(`docpilot_repo_${project.id}`, projName);
+          localStorage.setItem("docpilot_last_repo", projName);
+        } catch {}
+      }
+      navigate(
+        `/docpilot?projectId=${encodeURIComponent(project.id)}&start=true${projName ? `&projectName=${encodeURIComponent(projName)}` : ""}`,
+        {
+          state: {
+            projectId: project.id,
+            projectName: projName,
+            repositoryName: projName,
+          },
+        }
+      );
     };
 
     const handleProjectSettings = (project) => {
@@ -621,6 +651,7 @@ export default function Dashboard() {
           onLogout={
             logout
           }
+          onSettings={() => navigate("/settings")}
         />
 
         <div

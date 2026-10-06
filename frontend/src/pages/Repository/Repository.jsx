@@ -1758,10 +1758,23 @@ export default function Repository() {
                 <button
                   type="button"
                   onClick={() => {
+                    const projName = repositoryName || project?.name || "";
+                    if (projName) {
+                      try {
+                        localStorage.setItem("docpilot_last_repo", projName);
+                      } catch {}
+                    }
                     navigate(
                       `/docpilot?projectId=${encodeURIComponent(
                         uploadedRouteProjectId || project.id
-                      )}&jobId=${encodeURIComponent(project.latest_job_id)}`
+                      )}&jobId=${encodeURIComponent(project.latest_job_id)}${projName ? `&projectName=${encodeURIComponent(projName)}` : ""}`,
+                      {
+                        state: {
+                          projectId: uploadedRouteProjectId || project.id,
+                          projectName: projName,
+                          repositoryName: projName,
+                        },
+                      }
                     );
                   }}
                   className="
@@ -1783,10 +1796,23 @@ export default function Repository() {
                 <button
                   type="button"
                   onClick={() => {
+                    const projName = repositoryName || project?.name || "";
+                    if (projName) {
+                      try {
+                        localStorage.setItem("docpilot_last_repo", projName);
+                      } catch {}
+                    }
                     navigate(
                       `/docpilot?projectId=${encodeURIComponent(
                         uploadedRouteProjectId || project.id
-                      )}&start=true`
+                      )}&start=true${projName ? `&projectName=${encodeURIComponent(projName)}` : ""}`,
+                      {
+                        state: {
+                          projectId: uploadedRouteProjectId || project.id,
+                          projectName: projName,
+                          repositoryName: projName,
+                        },
+                      }
                     );
                   }}
                   className="
@@ -1816,11 +1842,24 @@ export default function Repository() {
                 onClick={() => {
                   if (isUploadedProject && files.length === 0) return;
                   const targetProjId = uploadedRouteProjectId || project?.id;
+                  const projName = repositoryName || project?.name || "";
+                  if (projName) {
+                    try {
+                      localStorage.setItem("docpilot_last_repo", projName);
+                    } catch {}
+                  }
                   if (targetProjId) {
                     navigate(
                       `/docpilot?projectId=${encodeURIComponent(
                         targetProjId
-                      )}&start=true`
+                      )}&start=true${projName ? `&projectName=${encodeURIComponent(projName)}` : ""}`,
+                      {
+                        state: {
+                          projectId: targetProjId,
+                          projectName: projName,
+                          repositoryName: projName,
+                        },
+                      }
                     );
                     return;
                   }
@@ -2272,10 +2311,23 @@ export default function Repository() {
                     <button
                       type="button"
                       onClick={() => {
+                        const projName = repositoryName || project?.name || "";
+                        if (projName) {
+                          try {
+                            localStorage.setItem("docpilot_last_repo", projName);
+                          } catch {}
+                        }
                         navigate(
                           `/docpilot?projectId=${encodeURIComponent(
                             uploadedRouteProjectId || project.id
-                          )}&jobId=${encodeURIComponent(project.latest_job_id)}`
+                          )}&jobId=${encodeURIComponent(project.latest_job_id)}${projName ? `&projectName=${encodeURIComponent(projName)}` : ""}`,
+                          {
+                            state: {
+                              projectId: uploadedRouteProjectId || project.id,
+                              projectName: projName,
+                              repositoryName: projName,
+                            },
+                          }
                         );
                       }}
                       className="
@@ -2296,10 +2348,23 @@ export default function Repository() {
                     <button
                       type="button"
                       onClick={() => {
+                        const projName = repositoryName || project?.name || "";
+                        if (projName) {
+                          try {
+                            localStorage.setItem("docpilot_last_repo", projName);
+                          } catch {}
+                        }
                         navigate(
                           `/docpilot?projectId=${encodeURIComponent(
                             uploadedRouteProjectId || project.id
-                          )}&start=true`
+                          )}&start=true${projName ? `&projectName=${encodeURIComponent(projName)}` : ""}`,
+                          {
+                            state: {
+                              projectId: uploadedRouteProjectId || project.id,
+                              projectName: projName,
+                              repositoryName: projName,
+                            },
+                          }
                         );
                       }}
                       className="
@@ -2327,18 +2392,32 @@ export default function Repository() {
                     onClick={() => {
                       if (isUploadedProject && files.length === 0) return;
                       const targetProjId = uploadedRouteProjectId || project?.id;
+                      const projName = repositoryName || project?.name || "";
+                      if (projName) {
+                        try {
+                          localStorage.setItem("docpilot_last_repo", projName);
+                        } catch {}
+                      }
                       if (targetProjId) {
                         navigate(
                           `/docpilot?projectId=${encodeURIComponent(
                             targetProjId
-                          )}&start=true`
+                          )}&start=true${projName ? `&projectName=${encodeURIComponent(projName)}` : ""}`,
+                          {
+                            state: {
+                              projectId: targetProjId,
+                              projectName: projName,
+                              repositoryName: projName,
+                            },
+                          }
                         );
                         return;
                       }
                       navigate("/docpilot", {
                         state: {
                           repositoryOwner,
-                          repositoryName,
+                          repositoryName: projName,
+                          projectName: projName,
                           projectId: project?.id,
                         },
                       });

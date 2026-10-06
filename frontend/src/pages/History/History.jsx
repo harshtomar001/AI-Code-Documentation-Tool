@@ -592,19 +592,37 @@ function History() {
                   <h3>Actions</h3>
                   <button
                     className="action-btn primary"
-                    onClick={() => navigate(`/docpilot?projectId=${encodeURIComponent(selectedRun.projectId)}`)}
+                    onClick={() => {
+                      const projName = selectedRun.projectName || "";
+                      navigate(
+                        `/docpilot?projectId=${encodeURIComponent(selectedRun.projectId)}${projName ? `&projectName=${encodeURIComponent(projName)}` : ""}`,
+                        { state: { projectId: selectedRun.projectId, projectName: projName, repositoryName: projName } }
+                      );
+                    }}
                   >
                     <FileText size={19} /> View Documentation <ExternalLink size={16} />
                   </button>
                   <button
                     className="action-btn"
-                    onClick={() => navigate(`/docpilot?projectId=${encodeURIComponent(selectedRun.projectId)}`)}
+                    onClick={() => {
+                      const projName = selectedRun.projectName || "";
+                      navigate(
+                        `/docpilot?projectId=${encodeURIComponent(selectedRun.projectId)}${projName ? `&projectName=${encodeURIComponent(projName)}` : ""}`,
+                        { state: { projectId: selectedRun.projectId, projectName: projName, repositoryName: projName } }
+                      );
+                    }}
                   >
                     <Download size={19} /> Download ZIP
                   </button>
                   <button
                     className="action-btn"
-                    onClick={() => navigate(`/docpilot?projectId=${encodeURIComponent(selectedRun.projectId)}&start=true`)}
+                    onClick={() => {
+                      const projName = selectedRun.projectName || "";
+                      navigate(
+                        `/docpilot?projectId=${encodeURIComponent(selectedRun.projectId)}&start=true${projName ? `&projectName=${encodeURIComponent(projName)}` : ""}`,
+                        { state: { projectId: selectedRun.projectId, projectName: projName, repositoryName: projName } }
+                      );
+                    }}
                   >
                     <RefreshCw size={19} /> Re-generate
                   </button>

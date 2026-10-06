@@ -508,7 +508,11 @@ export default function Documentation() {
       }
     }
     // Fallback: navigate to DocPilot where job archive and regeneration are available
-    navigate(`/docpilot?projectId=${encodeURIComponent(activeProjectId)}`);
+    const targetName = activeProject?.name || currentProject?.name || projName || "";
+    navigate(
+      `/docpilot?projectId=${encodeURIComponent(activeProjectId)}${targetName ? `&projectName=${encodeURIComponent(targetName)}` : ""}`,
+      { state: { projectId: activeProjectId, projectName: targetName, repositoryName: targetName } }
+    );
   };
 
   const handleSelectProject = (projId) => {
@@ -1030,13 +1034,15 @@ export default function Documentation() {
                         margin: "14px auto 0",
                         display: "inline-flex",
                       }}
-                      onClick={() =>
+                      onClick={() => {
+                        const projName = activeProject?.name || "";
                         navigate(
                           `/docpilot?projectId=${encodeURIComponent(
                             activeProjectId
-                          )}`
-                        )
-                      }
+                          )}${projName ? `&projectName=${encodeURIComponent(projName)}` : ""}`,
+                          { state: { projectId: activeProjectId, projectName: projName, repositoryName: projName } }
+                        );
+                      }}
                     >
                       Open DocPilot
                     </button>

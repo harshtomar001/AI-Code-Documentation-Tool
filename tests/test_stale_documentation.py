@@ -36,13 +36,15 @@ def test_stale_documentation_detector_runs():
     assert result.issues == []
 
 
-def test_detects_missing_parameter_documentation():
+def test_detects_stale_parameter_documentation():
     source = make_source(
         "def calculate(a, b):\n"
         '    """Calculate the sum.\n'
         "\n"
         "    Args:\n"
         "        a: First number.\n"
+        "        b: Second number.\n"
+        "        old_value: Previously used number.\n"
         '    """\n'
         "    return a + b\n"
     )
@@ -55,7 +57,7 @@ def test_detects_missing_parameter_documentation():
     assert len(result.issues) == 1
     assert result.issues[0].target == "calculate"
     assert result.issues[0].type == "function"
-    assert "b" in result.issues[0].details
+    assert "old_value" in result.issues[0].details
 
 
 def test_does_not_flag_when_all_parameters_are_documented():
@@ -106,6 +108,8 @@ def test_detects_stale_method_documentation():
         "\n"
         "        Args:\n"
         "            a: First number.\n"
+        "            b: Second number.\n"
+        "            old_value: Removed parameter.\n"
         '        """\n'
         "        return a + b\n"
     )
@@ -118,7 +122,7 @@ def test_detects_stale_method_documentation():
     assert len(result.issues) == 1
     assert result.issues[0].target == "add"
     assert result.issues[0].type == "method"
-    assert "b" in result.issues[0].details
+    assert "old_value" in result.issues[0].details
 
 
 def test_detects_async_function():
@@ -128,6 +132,8 @@ def test_detects_async_function():
         "\n"
         "    Args:\n"
         "        url: Resource URL.\n"
+        "        timeout: Request timeout.\n"
+        "        old_url: Removed URL.\n"
         '    """\n'
         "    return url\n"
     )
@@ -140,12 +146,18 @@ def test_detects_async_function():
     assert len(result.issues) == 1
     assert result.issues[0].target == "fetch"
     assert result.issues[0].type == "function"
-    assert "timeout" in result.issues[0].details
+    assert "old_url" in result.issues[0].details
 
 
 def test_ignores_private_function():
     source = make_source(
-        'def _calculate(a, b):\n    """Private calculation."""\n    return a + b\n'
+        'def _calculate(a, b):\n'
+        '    """Private calculation.\n'
+        "\n"
+        "    Args:\n"
+        "        old_value: Removed parameter.\n"
+        '    """\n'
+        "    return a + b\n"
     )
 
     result = StaleDocumentationDetector().detect(
@@ -157,7 +169,10 @@ def test_ignores_private_function():
 
 
 def test_ignores_undocumented_function():
-    source = make_source("def calculate(a, b):\n    return a + b\n")
+    source = make_source(
+        "def calculate(a, b):\n"
+        "    return a + b\n"
+    )
 
     result = StaleDocumentationDetector().detect(
         analyze(source),
@@ -195,7 +210,10 @@ def test_analysis_file_without_source_is_ignored():
 
 
 def test_invalid_python_source_is_ignored():
-    source = make_source("def broken(\n    return 123\n")
+    source = make_source(
+        "def broken(\n"
+        "    return 123\n"
+    )
 
     analysis = AnalysisResult(
         files=[
@@ -239,16 +257,21 @@ def test_star_parameter_documentation_is_recognized():
 def test_invalid_docstring_ast_is_handled():
     detector = StaleDocumentationDetector()
 
-    result = detector._extract_documented_parameters('broken """ documentation')
+    result = detector._extract_documented_parameters(
+        'broken """ documentation'
+    )
 
-    assert result == []
+    assert result == set()
 
 
 def test_extract_documented_parameters_handles_star_prefixes():
     detector = StaleDocumentationDetector()
 
     result = detector._extract_documented_parameters(
-        "a: First value.\n**kwargs: Additional options.\n*args: Positional values.\n"
+        "Args:\n"
+        "    a: First value.\n"
+        "    **kwargs: Additional options.\n"
+        "    *args: Positional values.\n"
     )
 
     assert "a" in result
@@ -260,19 +283,24 @@ def test_extract_documented_parameters_ignores_non_identifier():
     detector = StaleDocumentationDetector()
 
     result = detector._extract_documented_parameters(
-        "not-valid-name: Invalid parameter.\n"
-        "123: Invalid parameter.\n"
-        "valid_name: Valid parameter.\n"
+        "Args:\n"
+        "    not-valid-name: Invalid parameter.\n"
+        "    123: Invalid parameter.\n"
+        "    valid_name: Valid parameter.\n"
     )
 
-    assert result == ["valid_name"]
+    assert result == {"valid_name"}
 
 
 def test_private_method_is_ignored():
     source = make_source(
         "class Calculator:\n"
         "    def _add(self, a, b):\n"
-        '        """Add numbers."""\n'
+        '        """Add numbers.\n'
+        "\n"
+        "        Args:\n"
+        "            old_value: Removed parameter.\n"
+        '        """\n'
         "        return a + b\n"
     )
 
@@ -305,22 +333,24 @@ def test_cls_is_excluded_from_parameters():
     assert result.issues == []
 
 
-def test_is_method_returns_false_for_top_level_function():
-    source = (
+def test_top_level_function_is_detected_as_function():
+    source = make_source(
         "def calculate(a):\n"
         '    """Calculate.\n'
         "\n"
         "    Args:\n"
         "        a: Number.\n"
+        "        old_value: Removed parameter.\n"
         '    """\n'
         "    return a\n"
     )
 
-    import ast
+    result = StaleDocumentationDetector().detect(
+        analyze(source),
+        [source],
+    )
 
-    tree = ast.parse(source)
-    node = tree.body[0]
-
-    detector = StaleDocumentationDetector()
-
-    assert detector._is_method(node, tree) is False
+    assert len(result.issues) == 1
+    assert result.issues[0].target == "calculate"
+    assert result.issues[0].type == "function"
+    assert "old_value" in result.issues[0].details

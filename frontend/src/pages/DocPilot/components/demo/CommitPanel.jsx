@@ -15,9 +15,15 @@ import './CommitPanel.css';
 export default function CommitPanel() {
   const engine = useEngine();
   const t = engine.tally();
-  const branchName = engine.repositoryName
-    ? `ai-docs/${engine.repositoryName}`
-    : PR_BRANCH;
+  const projName =
+    engine.repositoryName ||
+    (typeof window !== "undefined"
+      ? new URLSearchParams(window.location.search).get("projectName") ||
+        localStorage.getItem("docpilot_last_repo")
+      : null) ||
+    "project";
+  const cleanName = projName.split("/").pop() || "project";
+  const branchName = `ai-docs/${cleanName}`;
 
   const committing = engine.batches.filter((b) => engine.isBatchCommitting(b.id));
   const staged = engine.realJob ? t.staged || 0 : 0;

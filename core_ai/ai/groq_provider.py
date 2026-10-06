@@ -1,50 +1,49 @@
-"""OpenRouter AI provider implementation."""
+"""Groq AI provider implementation."""
 
 import os
 
-from openai import OpenAI
+from groq import Groq
 
 from ..exceptions import AIProviderError
 from .provider import AIProvider
 
 
-class OpenRouterProvider(AIProvider):
-    """AI provider implementation backed by OpenRouter."""
+class GroqProvider(AIProvider):
+    """AI provider implementation backed by Groq."""
 
     def __init__(self) -> None:
-        """Initialize the OpenRouter client using the configured API key.
+        """Initialize the Groq client using the configured API key.
 
         Raises:
-            ValueError: If OPENROUTER_API_KEY is not configured.
+            ValueError: If GROQ_API_KEY is not configured.
         """
-        api_key = os.getenv("OPENROUTER_API_KEY")
+        api_key = os.getenv("GROQ_API_KEY")
 
         if not api_key:
-            raise ValueError("OPENROUTER_API_KEY is not configured")
+            raise ValueError("GROQ_API_KEY is not configured")
 
         self.model = os.getenv(
-            "OPENROUTER_MODEL",
-            " qwen/qwen3.8-27b",
+            "GROQ_MODEL",
+            "openai/gpt-oss-120b",
         )
 
-        self.client = OpenAI(
-            base_url="https://openrouter.ai/api/v1",
+        self.client = Groq(
             api_key=api_key,
             timeout=60.0,
             max_retries=2,
         )
 
     def generate(self, prompt: str) -> str:
-        """Generate documentation content using OpenRouter.
+        """Generate documentation content using Groq.
 
         Args:
-            prompt: Prompt sent to the configured OpenRouter model.
+            prompt: Prompt sent to the configured Groq model.
 
         Returns:
             The generated response text.
 
         Raises:
-            AIProviderError: If OpenRouter fails to generate a response
+            AIProviderError: If Groq fails to generate a response
                 or returns empty content.
         """
         try:
@@ -61,7 +60,9 @@ class OpenRouterProvider(AIProvider):
             content = response.choices[0].message.content
 
             if content is None:
-                raise AIProviderError("OpenRouter returned an empty response")
+                raise AIProviderError(
+                    "Groq returned an empty response"
+                )
 
             return content
 
@@ -70,5 +71,5 @@ class OpenRouterProvider(AIProvider):
 
         except Exception as exc:
             raise AIProviderError(
-                f"OpenRouter provider failed to generate a response: {exc}"
+                f"Groq provider failed to generate a response: {exc}"
             ) from exc
