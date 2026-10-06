@@ -12,6 +12,8 @@ import {
 } from "../../../api/github";
 import { createProject } from "../../../api/projects";
 import { saveProjectFiles } from "../../../api/projectStore";
+import { uploadRepository, createProjectJob } from "../../../api/jobs";
+import { createRepositoryZip } from "../../../utils/repositoryArchive";
 import {getToken} from "../../../utils/getToken.js";
 
 
@@ -100,7 +102,7 @@ export function ProjectSetupModal({
     initialProject,
   ]);
 
-  const handleSave = () => {
+  const handleSave = async () => {
     const trimmedName =
       name.trim();
 
@@ -122,7 +124,7 @@ export function ProjectSetupModal({
     };
 
     try {
-      onSave(project);
+      await onSave(project);
     } catch (saveError) {
       console.error(
         "Project save error:",
@@ -130,9 +132,9 @@ export function ProjectSetupModal({
       );
 
       setError(
-        "Could not save this project."
+        saveError?.message || "Could not save this project."
       );
-
+    } finally {
       setSaving(false);
     }
   };
@@ -365,6 +367,7 @@ function ImportRepositoryModal({
   darkMode,
   onClose,
   onSelectProject,
+  onChooseFolder,
 }) {
   const [github, setGithub] =
     useState({
@@ -833,6 +836,35 @@ function ImportRepositoryModal({
               </p>
             )}
           </div>
+
+          <div className="my-6 flex items-center gap-3">
+            <div className="h-px flex-1 bg-[#292d30]" />
+            <span className="text-[10px] uppercase tracking-[0.08em] text-[#626970]">
+              OR
+            </span>
+            <div className="h-px flex-1 bg-[#292d30]" />
+          </div>
+
+          <div>
+            <h3 className="text-[13px] font-medium">
+              Import from local computer
+            </h3>
+
+            <p className={`mt-1 text-[11px] ${muted}`}>
+              Select a local repository folder from your computer to analyze and generate documentation.
+            </p>
+
+            <button
+              type="button"
+              onClick={() => {
+                onClose();
+                onChooseFolder?.();
+              }}
+              className="mt-3 flex items-center gap-2 rounded-[7px] border border-[#292d30] bg-[#141618] px-4 py-2.5 text-[12px] font-medium text-white hover:bg-[#1f2225] hover:border-[#383e44] transition"
+            >
+              <span>📁</span> Choose Local Repository Folder
+            </button>
+          </div>
         </div>
 
         <div className="flex justify-end border-t border-[#292d30] px-6 py-4">
@@ -897,6 +929,17 @@ export default function ActionCards({
     uploadInputReset,
     setUploadInputReset,
   ] = useState(0);
+
+  const [
+    uploadStatus,
+    setUploadStatus,
+  ] = useState({
+    active: false,
+    stage: "", // "packaging" | "uploading" | "error"
+    percent: 0,
+    projectName: "",
+    error: "",
+  });
 
   const openProjectSetup = (
     project
@@ -995,72 +1038,86 @@ export default function ActionCards({
   };
 
   const saveAndOpenProject = async (project) => {
+    const token = getToken();
 
-      console.log("save and open project called");
-  const token = getToken();
+    if (!token) {
+      throw new Error("Please login first.");
+    }
 
-  if (!token) {
-    throw new Error("Please login first.");
-  }
+    const sourceType = project.source || "github";
 
-  const sourceType = project.source || "github";
+    const payload = {
+      name: project.name,
+      description: project.description || null,
+      source_type: sourceType,
+      github_owner: project.owner || null,
+      github_repo: project.repo || null,
+      github_url: project.html_url || null,
+      local_storage_path: null,
+      language:
+        project.language ||
+        project.repository?.language ||
+        null,
+      status:
+        sourceType === "upload"
+          ? "uploaded"
+          : "imported",
+      documentation_progress:
+        Number.isFinite(project.progress)
+          ? project.progress
+          : 0,
+    };
 
-  const payload = {
-    name: project.name,
-    description: project.description || null,
-    source_type: sourceType,
-    github_owner: project.owner || null,
-    github_repo: project.repo || null,
-    github_url: project.html_url || null,
-    local_storage_path: null,
-    language:
-      project.language ||
-      project.repository?.language ||
-      null,
-    status:
-      sourceType === "upload"
-        ? "uploaded"
-        : "imported",
-    documentation_progress:
-      Number.isFinite(project.progress)
-        ? project.progress
-        : 0,
-  };
+    if (sourceType === "upload") {
+      if (!project.files || project.files.length === 0) {
+        throw new Error("No files selected in this folder.");
+      }
 
-  const saved = await createProject(
-    token,
-    payload
-  );
+      setUploadStatus({
+        active: true,
+        stage: "uploading",
+        percent: 20,
+        projectName: project.name,
+        error: "",
+      });
 
-  console.log("save and open project after CREATE PROJECT");
+      try {
+        const saved = await createProject(token, payload);
 
-  if (
-    sourceType === "upload" &&
-    project.files?.length
-  ) {
-    await saveProjectFiles(
-      saved.id,
-      project.files
-    );
+        setUploadStatus((prev) => ({
+          ...prev,
+          percent: 50,
+        }));
 
-    console.log("save and open project after SAVE PROJECT FILES");
+        // Store repository files on backend storage
+        await saveProjectFiles(
+          saved.id,
+          project.files,
+          (percent) => {
+            setUploadStatus((prev) => ({
+              ...prev,
+              percent,
+            }));
+          }
+        );
 
-  }
+        window.dispatchEvent(
+          new CustomEvent("docuai-projects-updated")
+        );
 
-  window.dispatchEvent(
-    new CustomEvent(
-      "docuai-projects-updated"
-    )
-  );
+        setShowProjectSetup(false);
+        setSelectedProject(null);
+        setUploadStatus({
+          active: false,
+          stage: "",
+          percent: 0,
+          projectName: "",
+          error: "",
+        });
 
-  setShowProjectSetup(false);
-  setSelectedProject(null);
-
-  if (sourceType === "upload") {
-      navigate(
-          `/repository/uploaded/${encodeURIComponent(
-            saved.id
-          )}`,
+        // Navigate to the repository inspection page
+        navigate(
+          `/repository/uploaded/${encodeURIComponent(saved.id)}`,
           {
             state: {
               source: "upload",
@@ -1070,20 +1127,52 @@ export default function ActionCards({
               project: saved,
             },
           }
-    );
+        );
+        return;
+      } catch (uploadError) {
+        console.error("Local repository upload error:", uploadError);
+        const errorMsg =
+          uploadError?.response?.data?.detail ||
+          uploadError?.message ||
+          "Failed to upload local repository.";
+        setUploadStatus((prev) => ({
+          ...prev,
+          active: true,
+          stage: "error",
+          error: errorMsg,
+        }));
+        throw uploadError;
+      }
+    }
 
+    try {
+      const saved = await createProject(
+        token,
+        payload
+      );
 
-    return;
-  }
+      window.dispatchEvent(
+        new CustomEvent(
+          "docuai-projects-updated"
+        )
+      );
 
-  navigate(
-    `/repository/${encodeURIComponent(
-      saved.github_owner || project.owner
-    )}/${encodeURIComponent(
-      saved.github_repo || project.repo
-    )}`
-  );
-};
+      setShowProjectSetup(false);
+      setSelectedProject(null);
+
+      // Navigate to GitHub repository inspection page
+      navigate(
+        `/repository/${encodeURIComponent(
+          saved.github_owner || project.owner
+        )}/${encodeURIComponent(
+          saved.github_repo || project.repo
+        )}`
+      );
+    } catch (importError) {
+      console.error("Repository import error:", importError);
+      throw importError;
+    }
+  };
 
   const card =
     darkMode
@@ -1201,6 +1290,10 @@ export default function ActionCards({
               false
             )
           }
+          onChooseFolder={() => {
+            setShowImportModal(false);
+            folderInputRef.current?.click();
+          }}
           onSelectProject={
             (project) => {
               setShowImportModal(
@@ -1351,6 +1444,112 @@ export default function ActionCards({
             </div>
           </div>
         )}
+
+      {uploadStatus.active && (
+        <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/60 px-4 backdrop-blur-[2px]">
+          <div
+            className={`w-full max-w-[480px] rounded-[10px] border p-6 shadow-2xl ${
+              darkMode
+                ? "border-[#292d30] bg-[#101213] text-[#f2f3f4]"
+                : "border-[#dfe2e5] bg-white text-[#17191c]"
+            }`}
+          >
+            <div className="flex items-center justify-between pb-4">
+              <h3 className="text-[17px] font-semibold">
+                {uploadStatus.stage === "error"
+                  ? "Upload Failed"
+                  : uploadStatus.stage === "packaging"
+                  ? "Packaging Repository..."
+                  : "Uploading to DocPilot..."}
+              </h3>
+              {uploadStatus.stage === "error" && (
+                <button
+                  type="button"
+                  onClick={() =>
+                    setUploadStatus((prev) => ({ ...prev, active: false }))
+                  }
+                  className={`flex h-8 w-8 items-center justify-center rounded-md text-[18px] ${
+                    darkMode
+                      ? "text-[#858d93] hover:bg-[#202326] hover:text-white"
+                      : "text-[#666d73] hover:bg-[#f1f2f3] hover:text-black"
+                  }`}
+                >
+                  ×
+                </button>
+              )}
+            </div>
+
+            {uploadStatus.stage === "error" ? (
+              <div className="space-y-4">
+                <div
+                  className={`rounded-[8px] border p-4 text-[13px] leading-relaxed ${
+                    darkMode
+                      ? "border-red-900/50 bg-red-950/30 text-red-300"
+                      : "border-red-200 bg-red-50 text-red-700"
+                  }`}
+                >
+                  {uploadStatus.error || "An unexpected error occurred during repository upload."}
+                </div>
+                <div className="flex justify-end pt-2">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setUploadStatus((prev) => ({ ...prev, active: false }))
+                    }
+                    className="rounded-[7px] bg-[#ef5148] px-5 py-2 text-[13px] font-medium text-white hover:bg-[#d9443c] transition"
+                  >
+                    Close
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <p
+                  className={`text-[13px] ${
+                    darkMode ? "text-[#858d93]" : "text-[#666d73]"
+                  }`}
+                >
+                  {uploadStatus.stage === "packaging"
+                    ? `Creating archive for "${uploadStatus.projectName || "repository"}" preserving nested folder structure...`
+                    : `Uploading archive and starting documentation pipeline...`}
+                </p>
+
+                <div
+                  className={`h-2.5 w-full overflow-hidden rounded-full ${
+                    darkMode ? "bg-[#202326]" : "bg-[#e5e7eb]"
+                  }`}
+                >
+                  <div
+                    className="h-full bg-[#ef5148] transition-all duration-300"
+                    style={{ width: `${Math.max(5, uploadStatus.percent)}%` }}
+                  />
+                </div>
+
+                <div className="flex items-center justify-between text-[12px]">
+                  <span
+                    className={
+                      darkMode ? "text-[#858d93]" : "text-[#666d73]"
+                    }
+                  >
+                    {uploadStatus.stage === "packaging" ? "Archiving files" : "Uploading ZIP"}
+                  </span>
+                  <span className="font-semibold text-[#ef5148]">
+                    {uploadStatus.percent}%
+                  </span>
+                </div>
+
+                <p
+                  className={`text-[11px] italic ${
+                    darkMode ? "text-[#60676d]" : "text-[#9ca3af]"
+                  }`}
+                >
+                  Please keep this tab open. Your documentation job will start automatically.
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {showProjectSetup && (
         <ProjectSetupModal

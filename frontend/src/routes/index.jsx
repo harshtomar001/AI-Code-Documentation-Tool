@@ -11,6 +11,7 @@ import History from "../pages/History/History.jsx";
 import Documentation from "../pages/Documentation/Documentation.jsx"
 import DocPilot from "../pages/DocPilot/DocPilot";
 import Projects from "../pages/Projects/Projects";
+import Settings from "../pages/Settings/Settings";
 import DashboardLayout from "../layouts/DashboardLayout";
 function AppRoutes() {
   return (
@@ -61,6 +62,7 @@ function AppRoutes() {
 
             <Route path="/docpilot" element={<DocPilot />} />
           <Route path="/projects" element={<Projects />} />
+          <Route path="/settings" element={<Settings />} />
 
         </Route>
       </Route>

@@ -1,0 +1,47 @@
+.social-section {
+  padding-top: 23px;
+}
+
+.section-title {
+  margin-bottom: 22px;
+}
+
+.social-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  column-gap: 26px;
+  row-gap: 20px;
+}
+
+.social-field label {
+  min-height: 24px;
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  margin-bottom: 8px;
+  color: #f0f2f3;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.social-field input {
+  width: 100%;
+  height: 43px;
+  padding: 0 12px;
+  border: 1px solid #2b343b;
+  outline: none;
+  color: #e6e9eb;
+  background: #0b1116;
+  border-radius: 7px;
+  font-size: 13px;
+}
+
+.social-field input:focus {
+  border-color: #59636c;
+}
+
+@media (max-width: 1150px) {
+  .social-grid {
+    column-gap: 18px;
+  }
+}

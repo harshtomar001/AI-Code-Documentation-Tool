@@ -14,7 +14,14 @@ export default function RepoHeader() {
   const navigate = useNavigate();
   const { opts } = engine;
 
-  const isReal = engine.realJob;
+  const hasRealContext =
+    engine.realJob ||
+    Boolean(engine.projectId) ||
+    (typeof window !== "undefined" &&
+      (Boolean(new URLSearchParams(window.location.search).get("projectId")) ||
+        Boolean(localStorage.getItem("docpilot_last_project"))));
+
+  const isReal = Boolean(hasRealContext);
 
   const repoName = isReal
     ? (engine.repositoryName || 'Documentation Job')

@@ -47,3 +47,22 @@ export const getCurrentUser = async (token) => {
   });
   return response.data;
 };
+
+export const updateCurrentUser = async (data, token) => {
+  const response = await api.put("/api/auth/me", data, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+  return response.data;
+};
+
+export const changePassword = async (data, token) => {
+  const response = await api.post("/api/auth/change-password", data, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+  return response.data;
+};
+

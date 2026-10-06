@@ -1,0 +1,69 @@
+.settings-menu {
+  padding: 9px 6px 12px;
+  background: #0d1318;
+  border: 1px solid #202930;
+  border-radius: 7px;
+  overflow: hidden;
+}
+
+.settings-menu-item {
+  width: 100%;
+  min-height: 69px;
+  display: grid;
+  grid-template-columns: 42px minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  text-align: left;
+  color: #f0f1f2;
+  background: transparent;
+  border-radius: 7px;
+  cursor: pointer;
+  position: relative;
+}
+
+.settings-menu-item:hover {
+  background: #151c21;
+}
+
+.settings-menu-item.selected {
+  background: linear-gradient(90deg, #4b2526, #3a2222);
+}
+
+.settings-menu-item.selected::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 10px;
+  bottom: 10px;
+  width: 3px;
+  background: #ff5151;
+}
+
+.settings-menu-icon {
+  width: 38px;
+  display: grid;
+  place-items: center;
+}
+
+.settings-menu-item.selected .settings-menu-icon {
+  color: #ff5757;
+}
+
+.settings-menu-copy {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.settings-menu-copy strong {
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.settings-menu-copy small {
+  color: #8b959e;
+  font-size: 11.5px;
+  line-height: 1.3;
+}

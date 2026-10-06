@@ -130,6 +130,17 @@ export default function CompletionPanel() {
           >
             Back to Repository
           </button>
+
+          <button
+            type="button"
+            className="btn btn--ghost btn--lg"
+            onClick={() => {
+              const el = document.querySelector(".uploaded-folder-section");
+              if (el) el.scrollIntoView({ behavior: "smooth" });
+            }}
+          >
+            Browse Files ↓
+          </button>
         </div>
       </div>
 

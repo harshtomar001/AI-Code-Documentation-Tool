@@ -1815,15 +1815,16 @@ export default function Repository() {
                 disabled={isUploadedProject && files.length === 0}
                 onClick={() => {
                   if (isUploadedProject && files.length === 0) return;
-                  if (isUploadedProject) {
+                  const targetProjId = uploadedRouteProjectId || project?.id;
+                  if (targetProjId) {
                     navigate(
                       `/docpilot?projectId=${encodeURIComponent(
-                        uploadedRouteProjectId || project?.id
+                        targetProjId
                       )}&start=true`
                     );
-                  } else {
-                    setActiveTab("documentation");
+                    return;
                   }
+                  setActiveTab("documentation");
                 }}
                 className={`
                   shrink-0
@@ -2325,10 +2326,11 @@ export default function Repository() {
                     disabled={isUploadedProject && files.length === 0}
                     onClick={() => {
                       if (isUploadedProject && files.length === 0) return;
-                      if (isUploadedProject) {
+                      const targetProjId = uploadedRouteProjectId || project?.id;
+                      if (targetProjId) {
                         navigate(
                           `/docpilot?projectId=${encodeURIComponent(
-                            uploadedRouteProjectId || project?.id
+                            targetProjId
                           )}&start=true`
                         );
                         return;
@@ -2337,6 +2339,7 @@ export default function Repository() {
                         state: {
                           repositoryOwner,
                           repositoryName,
+                          projectId: project?.id,
                         },
                       });
                     }}

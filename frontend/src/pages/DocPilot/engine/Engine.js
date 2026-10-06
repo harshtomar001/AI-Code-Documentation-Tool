@@ -2044,13 +2044,26 @@ export class Engine {
   }
 
   init() {
-  this.t0 = this.simTime;
+    this.t0 = this.simTime;
 
-  this.batches = makeBatches();
+    const hasRealContext =
+      typeof window !== "undefined" &&
+      (Boolean(new URLSearchParams(window.location.search).get("projectId")) ||
+        Boolean(localStorage.getItem("docpilot_last_project")));
 
-  // Tracks batches currently waiting for backend commit response.
-  this.committingBatchIds = new Set();
-  this.committedBatchIds = new Set();
+    if (hasRealContext) {
+      this.realJob = true;
+      this.batches = [];
+      this.events = [];
+      this.commits = [];
+      this.aside = "Initializing documentation pipeline...";
+    } else {
+      this.batches = makeBatches();
+    }
+
+    // Tracks batches currently waiting for backend commit response.
+    this.committingBatchIds = new Set();
+    this.committedBatchIds = new Set();
 
 
   this.steps = Object.fromEntries(

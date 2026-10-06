@@ -25,7 +25,10 @@ from schemas.auth.auth import (
     ResetPasswordRequest,
     ResendOTPRequest,
     ResendResetOTPRequest,
+    UpdateProfileRequest,
+    ChangePasswordRequest,
 )
+from utils.security import hash_password, verify_password
 
 from services.auth.auth_service import (
     register_user,
@@ -350,11 +353,86 @@ async def get_me(
         "id": current_user.id,
         "name": current_user.name,
         "email": current_user.email,
+        "bio": current_user.bio,
+        "location": current_user.location,
+        "website": current_user.website,
+        "social_links": current_user.social_links or {},
         "providers": providers,
         "has_password": current_user.password_hash is not None,
         "is_active": current_user.is_active,
         "is_verified": current_user.is_verified,
     }
+
+
+@router.put("/me")
+async def update_me(
+    data: UpdateProfileRequest,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    if data.name is not None:
+        current_user.name = data.name.strip()
+    if data.bio is not None:
+        current_user.bio = data.bio.strip()
+    if data.location is not None:
+        current_user.location = data.location.strip()
+    if data.website is not None:
+        current_user.website = data.website.strip()
+    if data.social_links is not None:
+        current_user.social_links = data.social_links
+
+    await db.commit()
+    await db.refresh(current_user)
+
+    result = await db.execute(
+        select(UserIdentity).where(
+            UserIdentity.user_id == current_user.id
+        )
+    )
+    identities = result.scalars().all()
+
+    providers = [identity.provider for identity in identities]
+
+    if current_user.password_hash is not None:
+        providers.insert(0, "local")
+
+    return {
+        "id": current_user.id,
+        "name": current_user.name,
+        "email": current_user.email,
+        "bio": current_user.bio,
+        "location": current_user.location,
+        "website": current_user.website,
+        "social_links": current_user.social_links or {},
+        "providers": providers,
+        "has_password": current_user.password_hash is not None,
+        "is_active": current_user.is_active,
+        "is_verified": current_user.is_verified,
+    }
+
+
+@router.post("/change-password")
+async def change_password(
+    data: ChangePasswordRequest,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    if current_user.password_hash:
+        if not data.current_password:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Current password is required",
+            )
+        if not verify_password(data.current_password, current_user.password_hash):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Incorrect current password",
+            )
+
+    current_user.password_hash = hash_password(data.new_password)
+    await db.commit()
+
+    return {"message": "Password updated successfully"}
 
 
 # =========================================================

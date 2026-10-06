@@ -53,3 +53,25 @@ class ResetPasswordRequest(BaseModel):
 
 class ResendResetOTPRequest(BaseModel):
     email: EmailStr
+
+
+class UpdateProfileRequest(BaseModel):
+    name: str | None = Field(None, min_length=1, max_length=100)
+    bio: str | None = Field(None, max_length=500)
+    location: str | None = Field(None, max_length=100)
+    website: str | None = Field(None, max_length=255)
+    social_links: dict | None = None
+
+
+class ChangePasswordRequest(BaseModel):
+    current_password: str | None = None
+    new_password: str = Field(..., min_length=8, max_length=128)
+
+    @field_validator("new_password")
+    @classmethod
+    def validate_password_bytes(cls, value: str) -> str:
+        if len(value.encode("utf-8")) > 72:
+            raise ValueError("Password must not exceed 72 bytes")
+
+        return value
+

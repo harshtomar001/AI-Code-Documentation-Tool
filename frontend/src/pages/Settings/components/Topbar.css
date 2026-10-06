@@ -1,0 +1,106 @@
+.topbar {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  height: 84px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 30px;
+  border-bottom: 1px solid #20282f;
+  background: rgba(8, 13, 17, .97);
+}
+
+.search-box {
+  width: min(628px, 57%);
+  height: 44px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0 13px;
+  background: #0c1217;
+  border: 1px solid #263038;
+  border-radius: 7px;
+  color: #8d98a2;
+}
+
+.search-box input {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: #e7e9eb;
+  font-size: 14px;
+}
+
+.search-box input::placeholder {
+  color: #8b949d;
+}
+
+.search-box kbd {
+  padding: 5px 8px;
+  color: #818b95;
+  background: #11171c;
+  border: 1px solid #2a333a;
+  border-radius: 6px;
+  font-size: 11px;
+}
+
+.topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.icon-button {
+  position: relative;
+  width: 40px;
+  height: 40px;
+  display: grid;
+  place-items: center;
+  color: #f0f1f2;
+  background: transparent;
+  cursor: pointer;
+  border-radius: 8px;
+}
+
+.icon-button:hover {
+  background: #11181d;
+}
+
+.notification-dot {
+  position: absolute;
+  top: 7px;
+  right: 7px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #ff5555;
+}
+
+.user-menu {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: #f0f1f2;
+  background: transparent;
+  cursor: pointer;
+  padding: 3px 0 3px 8px;
+}
+
+.avatar {
+  width: 42px;
+  height: 42px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: #6d3c25;
+  color: #fff;
+  font-size: 17px;
+}
+
+.user-name {
+  font-size: 14px;
+}

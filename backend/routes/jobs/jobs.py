@@ -13,10 +13,11 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from database.database import get_db
-from database.models import DocumentationBatch, Project, User
+from database.models import DocumentationBatch, GitHubConnection, Project, User
 from backend.routes.auth.auth import get_current_user
 from backend.services.jobs import JobInfo, JobManager, JobWorker
 from backend.services.projects.project_storage import ProjectStorage
+from services.github_service import download_github_repository
 from utils.jwt import verify_access_token
 
 from .events import event_broker
@@ -74,7 +75,36 @@ async def create_job(
         str(project.id)
     )
 
-    if not repository_path.exists():
+    has_files = repository_path.exists() and any(repository_path.iterdir())
+
+    if not has_files and project.github_owner and project.github_repo:
+        conn_result = await db.execute(
+            select(GitHubConnection).where(
+                GitHubConnection.user_id == current_user.id
+            )
+        )
+        connection = conn_result.scalar_one_or_none()
+        access_token = connection.access_token if connection else None
+
+        try:
+            project_storage.clear_project(str(project.id))
+            await download_github_repository(
+                owner=project.github_owner,
+                repo=project.github_repo,
+                destination=repository_path,
+                access_token=access_token,
+            )
+            project.local_storage_path = str(repository_path)
+            project.status = "uploaded"
+            await db.commit()
+            await db.refresh(project)
+        except Exception as dl_exc:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Could not load GitHub repository '{project.github_owner}/{project.github_repo}': {dl_exc}",
+            ) from dl_exc
+
+    if not repository_path.exists() or not any(repository_path.iterdir()):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Project files are not available",
@@ -85,6 +115,12 @@ async def create_job(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Project storage path is invalid",
         )
+
+    repo_display_name = (
+        request.repository_name
+        if request.repository_name and request.repository_name != "repository"
+        else (project.name or "repository")
+    )
 
     project.status = "processing"
     await db.commit()
@@ -102,7 +138,7 @@ async def create_job(
         worker.run(
             job.job_id,
             str(repository_path),
-            request.repository_name,
+            repo_display_name,
             str(project.id),
         )
     )

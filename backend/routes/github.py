@@ -4,7 +4,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 import httpx
 import base64
 from database.database import get_db
-from database.models import GitHubConnection, User, UserIdentity
+from database.models import DocumentationBatch, GitHubConnection, Project, User, UserIdentity
 from routes.auth.auth import get_current_user
 from services.auth.oauth_service import (
     generate_oauth_state,
@@ -409,7 +409,7 @@ async def get_github_repository(
                     }
                 )
 
-        return {
+        response_payload = {
             "repository": {
                 "id": repo_data.get("id"),
                 "name": repo_data.get("name"),
@@ -475,7 +475,58 @@ async def get_github_repository(
             ),
             "readme": readme,
             "commits": commits,
+            "project": None,
         }
+
+        # Look up or create Project for this user and repository
+        project_result = await db.execute(
+            select(Project).where(
+                Project.user_id == current_user.id,
+                Project.github_owner == owner,
+                Project.github_repo == repo,
+            )
+        )
+        project_record = project_result.scalar_one_or_none()
+
+        if not project_record:
+            project_record = Project(
+                user_id=current_user.id,
+                name=repo_data.get("name") or repo,
+                description=repo_data.get("description"),
+                source_type="github",
+                github_owner=owner,
+                github_repo=repo,
+                github_url=repo_data.get("html_url"),
+                language=repo_data.get("language"),
+                status="imported",
+                documentation_progress=0,
+            )
+            try:
+                db.add(project_record)
+                await db.commit()
+                await db.refresh(project_record)
+            except Exception:
+                pass
+
+        if project_record:
+            batch_res = await db.execute(
+                select(DocumentationBatch.job_id)
+                .where(DocumentationBatch.project_id == project_record.id)
+                .order_by(DocumentationBatch.created_at.desc())
+                .limit(1)
+            )
+            latest_job_id = batch_res.scalar_one_or_none()
+            response_payload["project"] = {
+                "id": str(project_record.id),
+                "name": project_record.name,
+                "description": project_record.description,
+                "source_type": project_record.source_type,
+                "status": project_record.status,
+                "documentation_progress": project_record.documentation_progress,
+                "latest_job_id": latest_job_id,
+            }
+
+        return response_payload
 
     except HTTPException:
         raise

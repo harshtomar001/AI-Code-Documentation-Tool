@@ -1,12 +1,13 @@
 """Project file storage routes."""
 
+from pathlib import Path
 from uuid import UUID
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
 from fastapi.responses import PlainTextResponse
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from database.database import get_db
-from database.models import Project, User
+from database.models import DocumentationBatch, Project, User
 from routes.auth.auth import get_current_user
 from services.projects.project_storage import (
     MAX_FILE_BYTES,
@@ -210,10 +211,33 @@ async def get_project_files(
 
     files.sort(key=lambda file: file["path"])
 
+    # Include generated README.md if produced during documentation pipeline
+    batch_result = await db.execute(
+        select(DocumentationBatch)
+        .where(DocumentationBatch.project_id == project_id)
+        .order_by(DocumentationBatch.batch_id.asc())
+    )
+    batches = batch_result.scalars().all()
+    latest_readme = next((b.readme for b in reversed(batches) if b.readme), None)
+    has_readme_in_files = any(
+        f["path"].lower() == "readme.md" or f["path"].lower().endswith("/readme.md")
+        for f in files
+    )
+    if latest_readme and not has_readme_in_files:
+        files.insert(
+            0,
+            {
+                "path": "README.md",
+                "size": len(latest_readme.encode("utf-8")),
+                "is_generated": True,
+            },
+        )
+
     return {
         "project_id": str(project.id),
         "files": files,
     }
+
 
 @router.get("/{project_id}/files/content")
 async def get_project_file_content(
@@ -254,7 +278,40 @@ async def get_project_file_content(
         str(project.id)
     )
 
+    clean_posix = relative_path.as_posix().lower()
+    is_readme_req = clean_posix == "readme.md" or clean_posix.endswith("/readme.md")
+
+    # Fetch batches for this project
+    batch_result = await db.execute(
+        select(DocumentationBatch)
+        .where(DocumentationBatch.project_id == project_id)
+        .order_by(DocumentationBatch.batch_id.asc())
+    )
+    batches = batch_result.scalars().all()
+
+    # If requested file is README.md and a batch generated one, return it
+    if is_readme_req:
+        for b in reversed(batches):
+            if b.readme:
+                return PlainTextResponse(b.readme)
+
+    # Locate file on disk with flexibility for single root directory wrapping or stripping
     file_path = (project_root / relative_path).resolve()
+    if not (file_path.exists() and file_path.is_file()):
+        candidate = None
+        if project_root.exists() and project_root.is_dir():
+            for child in project_root.iterdir():
+                if child.is_dir() and not child.name.startswith("."):
+                    nested = (child / relative_path).resolve()
+                    if nested.exists() and nested.is_file():
+                        candidate = nested
+                        break
+        if candidate:
+            file_path = candidate
+        elif len(relative_path.parts) > 1:
+            stripped_path = (project_root / Path(*relative_path.parts[1:])).resolve()
+            if stripped_path.exists() and stripped_path.is_file():
+                file_path = stripped_path
 
     if not project_storage._is_inside(
         project_root.resolve(),
@@ -287,5 +344,25 @@ async def get_project_file_content(
             status_code=500,
             detail="Unable to read file",
         ) from exc
+
+    # Apply batch documentation changes (insert generated docstrings)
+    req_posix = relative_path.as_posix().replace("\\", "/").lstrip("/")
+    req_name = file_path.name
+    for b in batches:
+        for ch in b.changes or []:
+            if isinstance(ch, dict):
+                ch_file = (ch.get("file") or "").replace("\\", "/").lstrip("/")
+                # Match path directly, as suffix, or matching basename
+                matches = (
+                    ch_file == req_posix
+                    or req_posix.endswith("/" + ch_file)
+                    or ch_file.endswith("/" + req_posix)
+                    or req_name == ch_file.split("/")[-1]
+                )
+                if matches:
+                    before = ch.get("before")
+                    after = ch.get("after")
+                    if before and after and before in content:
+                        content = content.replace(before, after, 1)
 
     return PlainTextResponse(content)
